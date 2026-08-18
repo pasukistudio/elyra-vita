@@ -1,0 +1,88 @@
+import SwiftUI
+
+enum AppAccentColor: String, CaseIterable, Identifiable {
+
+    // MARK: - Verfuegbare Akzentfarben
+
+    case red
+    case orange
+    case green
+    case teal
+    case cyan
+    case blue
+    case indigo
+    case purple
+    case pink
+    case gray
+    case custom
+
+    // MARK: - Identifiable
+
+    var id: Self {
+        self
+    }
+
+    // MARK: - Anzeigename
+
+    var title: LocalizedStringResource {
+        switch self {
+        case .custom:
+            return "Eigene Farbe"
+
+        default:
+            return preset?.title ?? ""
+        }
+    }
+
+    // MARK: - Zugehoeriges Preset
+
+    var preset: ColorPreset? {
+        switch self {
+        case .custom:
+            return nil
+
+        case .red:
+            return .red
+
+        case .orange:
+            return .orange
+
+        case .green:
+            return .green
+
+        case .teal:
+            return .teal
+
+        case .cyan:
+            return .cyan
+
+        case .blue:
+            return .blue
+
+        case .indigo:
+            return .indigo
+
+        case .purple:
+            return .purple
+
+        case .pink:
+            return .pink
+
+        case .gray:
+            return .gray
+
+        }
+    }
+
+    // MARK: - SwiftUI-Farbe
+
+    var color: Color? {
+        preset?.color
+    }
+
+    // MARK: - Zugriffsregel
+
+    var isProOnly: Bool {
+        self == .custom
+    }
+}

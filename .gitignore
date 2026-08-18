@@ -1,0 +1,22 @@
+# Xcode user-specific data
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# Build products and derived data
+DerivedData/
+build/
+.build/
+
+# Temporary and generated project files
+tmp/
+output/
+.DS_Store
+
+# Swift Package Manager
+.swiftpm/
+Package.resolved
+
+# Local IDE and tooling files
+.vscode/
+.idea/
