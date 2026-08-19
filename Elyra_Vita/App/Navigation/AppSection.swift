@@ -1,6 +1,6 @@
 //
-//  SidebarSection.swift
-//  ElyraBudget
+//  AppSection.swift
+//  Elyra_Vita
 //
 //  Created by Pascal Smigielski on 04.08.26.
 //

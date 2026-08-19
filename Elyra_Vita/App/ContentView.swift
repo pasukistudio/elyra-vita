@@ -21,20 +21,21 @@ struct ContentView: View {
     // MARK: - Ansicht
     var body: some View {
         NavigationStack {
-            TabView(selection: $selectedSection) {
-                overview
-                nutrition
-                planning
-                recipies
-                progress
+            ZStack {
+                TabView(selection: $selectedSection) {
+                    overview
+                    nutrition
+                    planning
+                    recipies
+                    progress
+                }
             }
             .toolbar {
                 sharedToolbar
             }
+            .navigationBarTitleDisplayMode(.inline)
             .tint(selectedAccentColor)
-            .preferredColorScheme(
-                preferredColorScheme
-            )
+            .preferredColorScheme(preferredColorScheme)
             .navigationDestination(isPresented: $showingSettings) {
                 SettingsView()
             }
@@ -45,6 +46,7 @@ struct ContentView: View {
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
             }
+            .appBackground()
         }
     }
 
@@ -62,13 +64,11 @@ struct ContentView: View {
                 },
                 onSelectDate: {
                     showingDatePicker = true
-                    // Die Datumsauswahl wird spaeter hier angeschlossen.
                 },
                 onNext: {
                     moveSelectedDate(by: 1)
                 },
-                onAdd: {
-                },
+                onAdd: {},
                 onSettings: {
                     showingSettings = true
                 }
@@ -80,20 +80,24 @@ struct ContentView: View {
 
     /// Der Uebersichts-Tab.
     private var overview: some View {
-            OverviewView(accentColor: selectedAccentColor)
-                .tabItem {
-                    Label(AppSection.overview.title,
-                          systemImage: AppSection.overview.icon)
-                }
-                .tag(AppSection.overview)
+        OverviewView(accentColor: selectedAccentColor)
+            .tabItem {
+                Label(
+                    AppSection.overview.title,
+                    systemImage: AppSection.overview.icon
+                )
+            }
+            .tag(AppSection.overview)
     }
 
     /// Der Ernaehrungs-Tab.
     private var nutrition: some View {
         NutritionView()
             .tabItem {
-                Label(AppSection.nutrition.title,
-                      systemImage: AppSection.nutrition.icon)
+                Label(
+                    AppSection.nutrition.title,
+                    systemImage: AppSection.nutrition.icon
+                )
             }
             .tag(AppSection.nutrition)
     }
@@ -102,8 +106,10 @@ struct ContentView: View {
     private var planning: some View {
         PlanningView()
             .tabItem {
-                Label(AppSection.planning.title,
-                      systemImage: AppSection.planning.icon)
+                Label(
+                    AppSection.planning.title,
+                    systemImage: AppSection.planning.icon
+                )
             }
             .tag(AppSection.planning)
     }
@@ -112,8 +118,10 @@ struct ContentView: View {
     private var recipies: some View {
         RecipiesView()
             .tabItem {
-                Label(AppSection.recipies.title,
-                      systemImage: AppSection.recipies.icon)
+                Label(
+                    AppSection.recipies.title,
+                    systemImage: AppSection.recipies.icon
+                )
             }
             .tag(AppSection.recipies)
     }
@@ -122,8 +130,10 @@ struct ContentView: View {
     private var progress: some View {
         ProgressView()
             .tabItem {
-                Label(AppSection.progress.title,
-                      systemImage: AppSection.progress.icon)
+                Label(
+                    AppSection.progress.title,
+                    systemImage: AppSection.progress.icon
+                )
             }
             .tag(AppSection.progress)
     }

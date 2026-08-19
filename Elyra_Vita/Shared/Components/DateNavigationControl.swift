@@ -21,10 +21,6 @@ struct DateNavigationControl: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
-//        .glassEffect(
-//            .regular,
-//            in: Capsule()
-//        )
     }
 
     // MARK: - Vorheriger Tag
