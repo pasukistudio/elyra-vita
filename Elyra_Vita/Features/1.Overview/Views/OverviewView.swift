@@ -1,10 +1,44 @@
 import SwiftUI
+import SwiftData
 
 
 struct OverviewView: View {
 
+    // MARK: - Daten
+
+    /// Das Datum, für das die Übersicht den Wasserverbrauch zeigt.
+    let selectedDate: Date
+
+    @Query(sort: \WaterEntry.date, order: .forward)
+    private var waterEntries: [WaterEntry]
+
+    @State private var healthMetrics: HealthMetrics?
+    @State private var healthErrorMessage: String?
+
     // MARK: - Ansicht
     let accentColor: Color
+    let waterGoal: Int
+    let onOpenWater: () -> Void
+
+    init(
+        selectedDate: Date = .now,
+        waterGoal: Int = 2_500,
+        accentColor: Color,
+        onOpenWater: @escaping () -> Void = {}
+    ) {
+        self.selectedDate = selectedDate
+        self.waterGoal = waterGoal
+        self.accentColor = accentColor
+        self.onOpenWater = onOpenWater
+    }
+
+    // MARK: - Berechnete Werte
+
+    private var consumedWater: Int {
+        waterEntries
+            .filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }
+            .reduce(0) { $0 + $1.amount }
+    }
 
     var body: some View {
         List {
@@ -12,7 +46,12 @@ struct OverviewView: View {
 
             /// Kalorien und Wasser werden kompakt in einer gemeinsamen Karte angezeigt.
             Section {
-                CalorieWaterSummaryCard(accentColor: accentColor)
+                CalorieWaterSummaryCard(
+                    consumedWater: consumedWater,
+                    waterGoal: waterGoal,
+                    accentColor: accentColor,
+                    onWaterTap: onOpenWater
+                )
                 .listRowInsets(EdgeInsets())
             } header: {
                 Text("Tagesziele")
@@ -23,7 +62,8 @@ struct OverviewView: View {
             /// Die Tageswertekarte bildet den zweiten Abschnitt der Übersicht.
             Section {
                 DailyMetricsSummaryCard(
-                    accentColor: accentColor
+                    accentColor: accentColor,
+                    healthMetrics: healthMetrics
                 )
                 .listRowInsets(EdgeInsets())
             } header: {
@@ -32,7 +72,7 @@ struct OverviewView: View {
 
                     Spacer()
 
-                    Text("Health · jetzt")
+                    Text(healthStatusText)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(accentColor)
                         .padding(.horizontal, 10)
@@ -42,15 +82,59 @@ struct OverviewView: View {
                             in: Capsule()
                         )
                 }
+            } footer: {
+                if let healthErrorMessage {
+                    Text("Apple Health: \(healthErrorMessage)")
+                } else if healthMetrics?.containsData == false {
+                    Text("Für diesen Tag wurden in Apple Health keine passenden Daten gefunden.")
+                }
             }
 
         }
         .listStyle(.insetGrouped)
+        .task(id: selectedDate) {
+            await loadHealthMetrics()
+        }
+    }
+
+    // MARK: - Apple Health
+
+    private var healthStatusText: String {
+        if healthMetrics?.containsData == true {
+            return "Health · geladen"
+        }
+
+        if healthErrorMessage != nil {
+            return "Health · Fehler"
+        }
+
+        if healthMetrics != nil {
+            return "Health · keine Daten"
+        }
+
+        return "Health · wird geladen"
+    }
+
+    @MainActor
+    private func loadHealthMetrics() async {
+        healthMetrics = nil
+        healthErrorMessage = nil
+
+        do {
+            let service = HealthKitService.shared
+            try await service.requestAuthorization()
+            healthMetrics = try await service.metrics(for: selectedDate)
+        } catch {
+            healthErrorMessage = error.localizedDescription
+        }
     }
 
 }
 
+
+
 // MARK: - Preview
 #Preview("OverviewView") {
     OverviewView(accentColor: .blue)
+        .modelContainer(for: [WaterEntry.self], inMemory: true)
 }

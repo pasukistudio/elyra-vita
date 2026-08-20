@@ -1,4 +1,5 @@
 import SwiftUI
+import PasukiUI
 
 /// Zeigt die wichtigsten Gesundheitswerte in einer gemeinsamen Karte an.
 ///
@@ -10,6 +11,17 @@ struct DailyMetricsSummaryCard: View {
 
     /// Die aktuell ausgewählte Akzentfarbe der App.
     let accentColor: Color
+
+    /// Die für den ausgewählten Tag aus Apple Health gelesenen Werte.
+    let healthMetrics: HealthMetrics?
+
+    init(
+        accentColor: Color,
+        healthMetrics: HealthMetrics? = nil
+    ) {
+        self.accentColor = accentColor
+        self.healthMetrics = healthMetrics
+    }
 
     // MARK: - Layout
 
@@ -23,7 +35,7 @@ struct DailyMetricsSummaryCard: View {
         VStack(spacing: 0) {
             metricRow(
                 title: "Schritte",
-                value: "- Schritte",
+                value: integerText(healthMetrics?.steps, unit: "Schritte"),
                 systemImage: "shoeprints.fill",
                 color: .green
             )
@@ -32,7 +44,7 @@ struct DailyMetricsSummaryCard: View {
 
             metricRow(
                 title: "Geh-/Laufdistanz",
-                value: "- km",
+                value: distanceText(healthMetrics?.walkingRunningDistanceKilometers),
                 systemImage: "mappin.and.ellipse",
                 color: .blue
             )
@@ -41,7 +53,7 @@ struct DailyMetricsSummaryCard: View {
 
             metricRow(
                 title: "Aktiv verbrannt",
-                value: "- kcal",
+                value: integerText(healthMetrics?.activeEnergyKilocalories, unit: "kcal"),
                 systemImage: "figure.run",
                 color: .teal
             )
@@ -50,7 +62,7 @@ struct DailyMetricsSummaryCard: View {
 
             metricRow(
                 title: "Ruheenergie",
-                value: "- kcal",
+                value: integerText(healthMetrics?.basalEnergyKilocalories, unit: "kcal"),
                 systemImage: "figure.mind.and.body",
                 color: .secondary
             )
@@ -59,7 +71,7 @@ struct DailyMetricsSummaryCard: View {
 
             metricRow(
                 title: "Gesamtverbrauch",
-                value: "- kcal",
+                value: integerText(healthMetrics?.totalEnergyKilocalories, unit: "kcal"),
                 systemImage: "bolt.fill",
                 color: .orange
             )
@@ -68,7 +80,7 @@ struct DailyMetricsSummaryCard: View {
 
             metricRow(
                 title: "Gewicht",
-                value: "- kg",
+                value: weightText(healthMetrics?.weightKilograms),
                 systemImage: "scalemass",
                 color: .cyan
             )
@@ -131,8 +143,8 @@ struct DailyMetricsSummaryCard: View {
         HStack(spacing: 0) {
             macroMetric(
                 title: "Eiweiß",
-                value: "0 g",
-                percent: "0 %",
+                value: macroText(healthMetrics?.proteinGrams),
+                percent: nil,
                 color: .blue
             )
 
@@ -140,8 +152,8 @@ struct DailyMetricsSummaryCard: View {
 
             macroMetric(
                 title: "Kohlenhydrate",
-                value: "0 g",
-                percent: "0 %",
+                value: macroText(healthMetrics?.carbohydratesGrams),
+                percent: nil,
                 color: .teal
             )
 
@@ -149,8 +161,8 @@ struct DailyMetricsSummaryCard: View {
 
             macroMetric(
                 title: "Fett",
-                value: "0 g",
-                percent: "0 %",
+                value: macroText(healthMetrics?.fatGrams),
+                percent: nil,
                 color: .purple
             )
         }
@@ -162,7 +174,7 @@ struct DailyMetricsSummaryCard: View {
     private func macroMetric(
         title: String,
         value: String,
-        percent: String,
+        percent: String?,
         color: Color
     ) -> some View {
         VStack(spacing: 4) {
@@ -178,13 +190,37 @@ struct DailyMetricsSummaryCard: View {
                         .font(.body.weight(.semibold))
                         .foregroundStyle(color)
 
-                    Text(percent)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                    if let percent {
+                        Text(percent)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Formatierung
+
+    private func integerText(_ value: Double?, unit: String) -> String {
+        guard let value else { return "– \(unit)" }
+        return "\(Int(value.rounded())) \(unit)"
+    }
+
+    private func distanceText(_ value: Double?) -> String {
+        guard let value else { return "– km" }
+        return "\(value.formatted(.number.precision(.fractionLength(1)))) km"
+    }
+
+    private func weightText(_ value: Double?) -> String {
+        guard let value else { return "– kg" }
+        return "\(value.formatted(.number.precision(.fractionLength(1)))) kg"
+    }
+
+    private func macroText(_ value: Double?) -> String {
+        guard let value else { return "– g" }
+        return "\(Int(value.rounded())) g"
     }
 }
 

@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		506DD9F8303706B0001A3523 /* PasukiUI in Frameworks */ = {isa = PBXBuildFile; productRef = 9A6E3C2A4061A00100000001 /* PasukiUI */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		50C536FE302F94340002EE51 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -65,6 +69,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				506DD9F8303706B0001A3523 /* PasukiUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -125,6 +130,7 @@
 			);
 			name = Elyra_Vita;
 			packageProductDependencies = (
+				9A6E3C2A4061A00100000001 /* PasukiUI */,
 			);
 			productName = Elyra_Vita;
 			productReference = 50C536EC302F94320002EE51 /* Elyra_Vita.app */;
@@ -208,6 +214,9 @@
 			);
 			mainGroup = 50C536E3302F94320002EE51;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				9A6E3C2A4061A00200000001 /* XCLocalSwiftPackageReference "Packages/PasukiUI" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 50C536ED302F94320002EE51 /* Products */;
 			projectDirPath = "";
@@ -609,6 +618,21 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		9A6E3C2A4061A00200000001 /* XCLocalSwiftPackageReference "Packages/PasukiUI" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/PasukiUI;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		9A6E3C2A4061A00100000001 /* PasukiUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9A6E3C2A4061A00200000001 /* XCLocalSwiftPackageReference "Packages/PasukiUI" */;
+			productName = PasukiUI;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 50C536E4302F94320002EE51 /* Project object */;
 }

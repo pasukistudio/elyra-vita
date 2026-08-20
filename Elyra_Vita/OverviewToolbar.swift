@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct SharedToolbar: ToolbarContent {
+struct OverviewToolbar: ToolbarContent {
     // MARK: - Daten und Aktionen
 
     let title: String

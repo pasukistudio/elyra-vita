@@ -1,7 +1,18 @@
 import SwiftUI
 import SwiftData
+import OSLog
+import PasukiUI
 
 struct ContentView: View {
+    // MARK: - Abhängigkeiten
+
+    @Environment(\.modelContext) private var modelContext
+
+    private let logger = Logger(
+        subsystem: "de.pasukistudio.elyra-vita",
+        category: "Water"
+    )
+
     // MARK: - Navigation und Auswahl
 
     /// Der aktuell aktive Tab.
@@ -11,6 +22,9 @@ struct ContentView: View {
     @State private var selectedDate = Date()
 
     @State private var showingDatePicker = false
+
+    /// Steuert die Präsentation der Ansicht zum Wasser hinzufügen.
+    @State private var showingAddWater = false
 
     /// Gespeicherte Einstellungen, automatisch von SwiftData beobachtet.
     @Query private var userSettings: [UserSettings]
@@ -46,6 +60,18 @@ struct ContentView: View {
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
             }
+            .sheet(isPresented: $showingAddWater) {
+                AddWaterView(
+                    selectedDate: selectedDate,
+                    accentColor: selectedAccentColor,
+                    onAddWater: { amount in
+                        addWater(amount, for: selectedDate)
+                    }
+                )
+                .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+                    .presentationBackground(.regularMaterial)
+            }
             .appBackground()
         }
     }
@@ -68,7 +94,15 @@ struct ContentView: View {
                 onNext: {
                     moveSelectedDate(by: 1)
                 },
-                onAdd: {},
+                onAddWater: {
+                    showingAddWater = true
+                },
+                onAddMeal: {
+                    // Die konkrete Präsentation der Mahlzeit-Ansicht folgt als nächster Schritt.
+                },
+                onAddWeight: {
+                    // Die konkrete Präsentation der Gewicht-Ansicht folgt als nächster Schritt.
+                },
                 onSettings: {
                     showingSettings = true
                 }
@@ -80,7 +114,14 @@ struct ContentView: View {
 
     /// Der Uebersichts-Tab.
     private var overview: some View {
-        OverviewView(accentColor: selectedAccentColor)
+        OverviewView(
+            selectedDate: selectedDate,
+            waterGoal: userSettings.first?.waterGoalML ?? 2_500,
+            accentColor: selectedAccentColor,
+            onOpenWater: {
+                showingAddWater = true
+            }
+        )
             .tabItem {
                 Label(
                     AppSection.overview.title,
@@ -179,6 +220,32 @@ struct ContentView: View {
         selectedDate = newDate
     }
 
+    // MARK: - Wasser speichern
+
+    /// Speichert den Eintrag am ausgewählten Tag mit der aktuellen Uhrzeit.
+    private func addWater(_ amount: Int, for day: Date) {
+        guard amount > 0 else {
+            return
+        }
+
+        let now = Date()
+        let calendar = Calendar.current
+        let entryDate = calendar.date(
+            bySettingHour: calendar.component(.hour, from: now),
+            minute: calendar.component(.minute, from: now),
+            second: calendar.component(.second, from: now),
+            of: day
+        ) ?? day
+
+        modelContext.insert(WaterEntry(date: entryDate, amount: amount))
+
+        do {
+            try modelContext.save()
+        } catch {
+            logger.error("Wassereintrag konnte nicht gespeichert werden: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
     // MARK: - Erscheinungsbild
 
     /// Uebersetzt die gespeicherte Auswahl in ein SwiftUI-Farbschema.
@@ -224,7 +291,8 @@ struct ContentView: View {
     ContentView()
         .modelContainer(
             for: [
-                UserSettings.self
+                UserSettings.self,
+                WaterEntry.self
             ],
             inMemory: true
         )

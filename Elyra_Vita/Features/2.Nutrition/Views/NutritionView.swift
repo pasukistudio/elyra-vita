@@ -1,4 +1,5 @@
 import SwiftUI
+import PasukiUI
 struct NutritionView: View {
     // MARK: - Ansicht
 
