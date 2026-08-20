@@ -18,6 +18,10 @@ final class UserSettings {
 
     var customAccentHex: String = "#007AFF"
 
+    // MARK: - Tagesziele
+
+    var waterGoalML: Int = 2_500
+
     // MARK: - Benachrichtigungen
 
     // Hier kommen spaeter Benachrichtigungseinstellungen hinzu.
@@ -38,12 +42,14 @@ final class UserSettings {
             AppAppearance.system.rawValue,
         accentColorRawValue: String =
             AppAccentColor.blue.rawValue,
-        customAccentHex: String = "#007AFF"
+        customAccentHex: String = "#007AFF",
+        waterGoalML: Int = 2_500
     ) {
         self.name = name
         self.appearanceRawValue = appearanceRawValue
         self.accentColorRawValue = accentColorRawValue
         self.customAccentHex = customAccentHex
+        self.waterGoalML = min(max(waterGoalML, 500), 6_000)
         self.createdAt = Date()
         self.updatedAt = Date()
     }

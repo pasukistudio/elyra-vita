@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import PasukiUI
 
 /// Zeigt die beiden wichtigsten Tagesziele kompakt in einer gemeinsamen Karte.
 ///
@@ -36,6 +37,9 @@ struct CalorieWaterSummaryCard: View {
     /// Die in den Einstellungen ausgewählte Akzentfarbe.
     let accentColor: Color
 
+    /// Öffnet das Wasser-Sheet beim Antippen der Wasser-Spalte.
+    let onWaterTap: () -> Void
+
     // MARK: - Initialisierung
 
     init(
@@ -45,7 +49,8 @@ struct CalorieWaterSummaryCard: View {
         waterGoal: Int = 2_500,
         hasCalorieGoal: Bool = true,
         hasWaterGoal: Bool = true,
-        accentColor: Color
+        accentColor: Color,
+        onWaterTap: @escaping () -> Void = {}
     ) {
         self.consumedCalories = max(0, consumedCalories)
         self.calorieGoal = max(0, calorieGoal)
@@ -54,6 +59,7 @@ struct CalorieWaterSummaryCard: View {
         self.hasCalorieGoal = hasCalorieGoal
         self.hasWaterGoal = hasWaterGoal
         self.accentColor = accentColor
+        self.onWaterTap = onWaterTap
     }
 
     // MARK: - Berechnete Werte
@@ -101,16 +107,20 @@ struct CalorieWaterSummaryCard: View {
 
     /// Rechte Spalte für das Wasserziel.
     private var waterColumn: some View {
-        goalColumn(
-            title: "Wasser",
-            icon: "drop.fill",
-            iconColor: .blue,
-            value: "\(consumedWater) ml",
-            goalText: hasWaterGoal ? "von \(waterGoal) ml" : "Kein Ziel festgelegt",
-            progress: waterProgress,
-            progressColor: consumedWater > waterGoal ? .red : .blue,
-            percentage: Int(waterProgress * 100)
-        )
+        Button(action: onWaterTap) {
+            goalColumn(
+                title: "Wasser",
+                icon: "drop.fill",
+                iconColor: .blue,
+                value: "\(consumedWater) ml",
+                goalText: hasWaterGoal ? "von \(waterGoal) ml" : "Kein Ziel festgelegt",
+                progress: waterProgress,
+                progressColor: consumedWater > waterGoal ? .red : .blue,
+                percentage: Int(waterProgress * 100)
+            )
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
     }
 
     /// Baut eine einheitliche Zielspalte für Kalorien und Wasser auf.
@@ -148,15 +158,10 @@ struct CalorieWaterSummaryCard: View {
             }
         }
 
-            Capsule()
-                .fill(Color.secondary.opacity(0.18))
-                .frame(height: 10)
-                .overlay(alignment: .leading) {
-                    Capsule()
-                        .fill(progressColor)
-                        .frame(maxWidth: .infinity)
-                        .scaleEffect(x: progress, y: 1, anchor: .leading)
-                }
+            AppProgressBar(
+                progress: progress,
+                color: progressColor
+            )
 
             Text("\(percentage) %")
             .font(.headline .weight(.bold))

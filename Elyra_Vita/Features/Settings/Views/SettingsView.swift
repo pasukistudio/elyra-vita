@@ -24,6 +24,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             profileSection          //Profil Sektion
+            dailyGoalsSection       //Tagesziele Sektion
             appearanceSection       //Erscheinungsbild Sektion
             accentColorSection      //Akzentfarbe Sektion
             supportSection          //Support Sektion
@@ -45,6 +46,39 @@ struct SettingsView: View {
         }
         .onDisappear {
             saveName()
+        }
+    }
+
+    // MARK: - Tagesziele Sektion
+
+    @ViewBuilder
+    private var dailyGoalsSection: some View {
+        Section("Tagesziele") {
+            if let profile = profiles.first {
+                Stepper(
+                    value: Binding(
+                        get: { profile.waterGoalML },
+                        set: { value in
+                            profile.waterGoalML = value
+                            profile.updatedAt = .now
+                            saveSettings()
+                        }
+                    ),
+                    in: 500...6_000,
+                    step: 250
+                ) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Wasserziel")
+                            .font(.body.weight(.medium))
+
+                        Text("\(profile.waterGoalML.formatted(.number.locale(Locale(identifier: "de_DE")))) ml pro Tag")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } else {
+                ProgressView()
+            }
         }
     }
 
