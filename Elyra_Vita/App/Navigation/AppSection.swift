@@ -1,12 +1,8 @@
-//
-//  AppSection.swift
-//  Elyra_Vita
-//
-//  Created by Pascal Smigielski on 04.08.26.
-//
-
 import SwiftUI
 
+// MARK: - AppSection
+
+/// Die fünf Hauptbereiche der Tab-Navigation.
 enum AppSection: String, CaseIterable, Identifiable {
     // MARK: - Tab-Bereiche
 

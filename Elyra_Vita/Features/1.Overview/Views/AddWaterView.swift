@@ -2,6 +2,10 @@ import SwiftUI
 import SwiftData
 import PasukiUI
 
+// MARK: - AddWaterView
+
+/// Erfasst schnelle oder frei eingegebene Wasserportionen und zeigt das
+/// Trinkprotokoll des ausgewählten Tages an.
 struct AddWaterView: View {
     // MARK: - Umgebung und Eingaben
 
@@ -21,6 +25,7 @@ struct AddWaterView: View {
     /// Übergibt eine Menge an die spätere HealthKit-/SwiftData-Anbindung.
     let onAddWater: (Int) -> Void
 
+    /// Häufige Portionsgrößen, die ohne Tastatureingabe hinzugefügt werden.
     private let quickAmounts = [250, 330, 500, 750]
 
     // MARK: - Initialisierung

@@ -1,5 +1,9 @@
 import SwiftUI
 import PasukiUI
+
+// MARK: - NutritionView
+
+/// Platzhalter für die spätere Ernährungserfassung und -auswertung.
 struct NutritionView: View {
     // MARK: - Ansicht
 

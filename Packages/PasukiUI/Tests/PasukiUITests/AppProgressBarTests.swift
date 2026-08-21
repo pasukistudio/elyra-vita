@@ -1,6 +1,9 @@
 import XCTest
 @testable import PasukiUI
 
+// MARK: - AppProgressBarTests
+
+/// Verhaltenstests für die wiederverwendbare Fortschrittsanzeige.
 final class AppProgressBarTests: XCTestCase {
 
     // MARK: - Fortschrittsgrenzen
@@ -21,5 +24,57 @@ final class AppProgressBarTests: XCTestCase {
 
         XCTAssertEqual(belowMinimum.progress, -0.5)
         XCTAssertEqual(aboveMaximum.progress, 1.5)
+    }
+}
+
+// MARK: - PasukiAccentColorSelectionTests
+
+final class PasukiAccentColorSelectionTests: XCTestCase {
+
+    // MARK: - Testzugriff
+
+    func testPresetDoesNotRequireProAccess() {
+        let selection = PasukiAccentColorSelection.preset(.blue)
+
+        XCTAssertNil(selection.requiredProFeature)
+        XCTAssertTrue(selection.isAvailable(for: TestProAccess(isUnlocked: false)))
+    }
+
+    func testCustomColorUsesSharedProFeature() {
+        let selection = PasukiAccentColorSelection.custom(hex: "#007AFF")
+
+        XCTAssertEqual(
+            selection.requiredProFeature,
+            .customAccentColor
+        )
+        XCTAssertFalse(selection.isAvailable(for: TestProAccess(isUnlocked: false)))
+        XCTAssertTrue(selection.isAvailable(for: TestProAccess(isUnlocked: true)))
+    }
+}
+
+// MARK: - PasukiSharedSettingsTests
+
+final class PasukiSharedSettingsTests: XCTestCase {
+
+    func testAppearanceProvidesStablePresentationValues() {
+        XCTAssertEqual(PasukiAppearance.system.rawValue, "system")
+        XCTAssertNil(PasukiAppearance.system.colorScheme)
+        XCTAssertEqual(PasukiAppearance.dark.colorScheme, .dark)
+    }
+
+    func testColorPresetValuesRemainStable() {
+        XCTAssertEqual(PasukiColorPreset.blue.rawValue, "blue")
+        XCTAssertEqual(PasukiColorPreset.blue.hex, "#007AFF")
+        XCTAssertEqual(PasukiColorPreset.allCases.count, 10)
+    }
+}
+
+// MARK: - TestProAccess
+
+private struct TestProAccess: PasukiProAccess {
+    let isUnlocked: Bool
+
+    func hasAccess(to feature: PasukiProFeature) -> Bool {
+        isUnlocked
     }
 }

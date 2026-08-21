@@ -3,6 +3,9 @@ import SwiftData
 import OSLog
 import PasukiUI
 
+// MARK: - ContentView
+
+/// Zentrale Navigation der App mit gemeinsamer Tagesauswahl und Sheets.
 struct ContentView: View {
     // MARK: - Abhängigkeiten
 
@@ -21,6 +24,7 @@ struct ContentView: View {
     /// Das Datum der gemeinsamen Datumsnavigation.
     @State private var selectedDate = Date()
 
+    /// Steuert die Präsentation der Datumsauswahl.
     @State private var showingDatePicker = false
 
     /// Steuert die Präsentation der Ansicht zum Wasser hinzufügen.
@@ -94,19 +98,30 @@ struct ContentView: View {
                 onNext: {
                     moveSelectedDate(by: 1)
                 },
-                onAddWater: {
-                    showingAddWater = true
-                },
-                onAddMeal: {
-                    // Die konkrete Präsentation der Mahlzeit-Ansicht folgt als nächster Schritt.
-                },
-                onAddWeight: {
-                    // Die konkrete Präsentation der Gewicht-Ansicht folgt als nächster Schritt.
+                menuActions: selectedSection == .overview
+                    ? SharedToolbarAction.overview
+                    : SharedToolbarAction.nutrition,
+                onMenuAction: { action in
+                    handleToolbarAction(action)
                 },
                 onSettings: {
                     showingSettings = true
                 }
             )
+        }
+    }
+
+    // MARK: - Toolbar-Aktionen
+
+    /// Führt die bereits implementierten Aktionen direkt aus und hält
+    /// zukünftige Mahlzeit-/Gewicht-Views als klar benannte Fälle bereit.
+    private func handleToolbarAction(_ action: SharedToolbarAction) {
+        switch action {
+        case .water:
+            showingAddWater = true
+        case .meal, .weight, .breakfast, .lunch, .dinner, .snack:
+            // Die jeweiligen Erfassungs-Views folgen in den passenden Features.
+            break
         }
     }
 
@@ -272,18 +287,15 @@ struct ContentView: View {
 
         let accentColor = AppAccentColor(
             rawValue: settings.accentColorRawValue
-        ) ?? .blue
+        )
 
-        switch accentColor {
-        case .custom:
+        if accentColor == .custom {
             return Color(
                 hexString: settings.customAccentHex
             )
-
-        default:
-            return accentColor.color
-                ?? ColorPreset.blue.color
         }
+
+        return accentColor.color ?? ColorPreset.blue.color
     }
 }
 

@@ -2,6 +2,9 @@
 
 import PackageDescription
 
+// MARK: - PasukiUI-Paketdefinition
+
+/// Plattformen, Produkt und Testziel des gemeinsamen SwiftUI-Bausteinpakets.
 let package = Package(
     name: "PasukiUI",
     platforms: [

@@ -1,7 +1,11 @@
 import SwiftData
 import XCTest
+import PasukiUI
 @testable import Elyra_Vita
 
+// MARK: - WaterAndHealthTests
+
+/// Isolierte Tests für Wasser-, Ziel- und Health-Metriklogik.
 @MainActor
 final class WaterAndHealthTests: XCTestCase {
 
@@ -55,6 +59,17 @@ final class WaterAndHealthTests: XCTestCase {
         XCTAssertEqual(entry.createdAt, entry.updatedAt)
     }
 
+    /// Prüft, dass eine fachliche Änderung den Änderungszeitpunkt aktualisiert.
+    func testWaterEntryUpdatesTimestampWhenEdited() {
+        let entry = WaterEntry(amount: 330)
+        let originalUpdatedAt = entry.updatedAt
+
+        entry.update(amount: 500)
+
+        XCTAssertEqual(entry.amount, 500)
+        XCTAssertGreaterThanOrEqual(entry.updatedAt, originalUpdatedAt)
+    }
+
     /// Prüft das Löschen eines Wassereintrags aus dem lokalen SwiftData-Store.
     func testWaterEntryCanBeDeleted() throws {
         let container = try makeInMemoryContainer()
@@ -82,6 +97,28 @@ final class WaterAndHealthTests: XCTestCase {
         XCTAssertEqual(tooSmall.waterGoalML, 500)
         XCTAssertEqual(tooLarge.waterGoalML, 6_000)
         XCTAssertEqual(valid.waterGoalML, 3_250)
+    }
+
+    // MARK: - Gemeinsame UI-Konfiguration
+
+    /// Prüft, dass die beiden Bereiche ihre vorgesehenen Plus-Menüs erhalten.
+    func testToolbarActionsMatchOverviewAndNutrition() {
+        XCTAssertEqual(
+            SharedToolbarAction.overview,
+            [.meal, .water, .weight]
+        )
+        XCTAssertEqual(
+            SharedToolbarAction.nutrition,
+            [.breakfast, .lunch, .dinner, .snack, .water]
+        )
+    }
+
+    /// Prüft, dass feste Farben aus der gemeinsamen PasukiUI-Palette kommen.
+    func testAccentColorUsesSharedPresetValues() throws {
+        let accentColor = try XCTUnwrap(AppAccentColor(rawValue: "blue"))
+
+        XCTAssertEqual(accentColor.preset, .blue)
+        XCTAssertFalse(accentColor.isProOnly)
     }
 
     // MARK: - HealthMetrics
