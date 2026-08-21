@@ -34,6 +34,8 @@ struct NutritionFood: Identifiable, Hashable {
     let fiberPer100: Double
     let saturatedFatPer100: Double
     let saltPer100: Double
+    let source: String
+    let barcode: String?
 
     init(
         id: String,
@@ -48,7 +50,9 @@ struct NutritionFood: Identifiable, Hashable {
         sugarPer100: Double = 0,
         fiberPer100: Double = 0,
         saturatedFatPer100: Double = 0,
-        saltPer100: Double = 0
+        saltPer100: Double = 0,
+        source: String = "local",
+        barcode: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -63,6 +67,8 @@ struct NutritionFood: Identifiable, Hashable {
         self.fiberPer100 = fiberPer100
         self.saturatedFatPer100 = saturatedFatPer100
         self.saltPer100 = saltPer100
+        self.source = source
+        self.barcode = barcode
     }
 
     // MARK: - Eingabeeinheiten
