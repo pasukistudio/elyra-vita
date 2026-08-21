@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import OSLog
 import PasukiUI
 
 // MARK: - AddWaterView
@@ -10,8 +11,16 @@ struct AddWaterView: View {
     // MARK: - Umgebung und Eingaben
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @State private var customAmountText = ""
+    @State private var entryToDelete: WaterEntry?
+    @State private var deleteErrorMessage: String?
     @FocusState private var customAmountFocused: Bool
+
+    private let logger = Logger(
+        subsystem: "de.pasukistudio.elyra-vita",
+        category: "WaterLog"
+    )
 
     /// Das Datum, für das der Eintrag und das Logbuch gelten.
     let selectedDate: Date
@@ -61,6 +70,46 @@ struct AddWaterView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Fertig") { dismiss() }
                 }
+            }
+            .confirmationDialog(
+                "Wassereintrag löschen?",
+                isPresented: Binding(
+                    get: { entryToDelete != nil },
+                    set: { isPresented in
+                        if !isPresented {
+                            entryToDelete = nil
+                        }
+                    }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Eintrag löschen", role: .destructive) {
+                    deleteSelectedEntry()
+                }
+                Button("Abbrechen", role: .cancel) {
+                    entryToDelete = nil
+                }
+            } message: {
+                if let entryToDelete {
+                    Text("\(formattedAmount(entryToDelete.amount)) ml um \(entryToDelete.date, format: .dateTime.hour().minute()) wirklich löschen?")
+                }
+            }
+            .alert(
+                "Eintrag konnte nicht gelöscht werden",
+                isPresented: Binding(
+                    get: { deleteErrorMessage != nil },
+                    set: { isPresented in
+                        if !isPresented {
+                            deleteErrorMessage = nil
+                        }
+                    }
+                )
+            ) {
+                Button("OK") {
+                    deleteErrorMessage = nil
+                }
+            } message: {
+                Text(deleteErrorMessage ?? "Unbekannter Fehler")
             }
         }
     }
@@ -171,6 +220,19 @@ struct AddWaterView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                                 .monospacedDigit()
+
+                            Button {
+                                entryToDelete = entry
+                            } label: {
+                                Image(systemName: "trash")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.red)
+                                    .frame(width: 32, height: 32)
+                            }
+                            .buttonStyle(.borderless)
+                            .accessibilityLabel(
+                                "\(formattedAmount(entry.amount)) Milliliter löschen"
+                            )
                         }
                         .padding(.vertical, 9)
 
@@ -214,6 +276,27 @@ struct AddWaterView: View {
         onAddWater(amount)
         customAmountText = ""
         customAmountFocused = false
+    }
+
+    // MARK: - Löschen
+
+    /// Löscht den bestätigten Eintrag aus SwiftData.
+    /// SwiftData/CloudKit übernimmt anschließend die geräteübergreifende
+    /// Löschung über den bestehenden nativen Synchronisations-Stack.
+    private func deleteSelectedEntry() {
+        guard let entryToDelete else { return }
+
+        modelContext.delete(entryToDelete)
+        self.entryToDelete = nil
+
+        do {
+            try modelContext.save()
+        } catch {
+            logger.error(
+                "Wassereintrag konnte nicht gelöscht werden: \(error.localizedDescription)"
+            )
+            deleteErrorMessage = "Der Wassereintrag konnte nicht gelöscht werden."
+        }
     }
 
     private func formattedAmount(_ amount: Int) -> String {

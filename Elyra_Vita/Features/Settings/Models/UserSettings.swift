@@ -28,6 +28,9 @@ final class UserSettings {
     /// Elyra-Vita-spezifisches Wasserziel in Millilitern.
     var waterGoalML: Int = 2_500
 
+    /// Persönliches tägliches Kalorienziel.
+    var calorieGoal: Int = 1_800
+
     // MARK: - Benachrichtigungen
 
     // Weitere Benachrichtigungseinstellungen werden später ergänzt.
@@ -49,13 +52,15 @@ final class UserSettings {
         accentColorRawValue: String =
             AppAccentColor.blue.rawValue,
         customAccentHex: String = "#007AFF",
-        waterGoalML: Int = 2_500
+        waterGoalML: Int = 2_500,
+        calorieGoal: Int = 1_800
     ) {
         self.name = name
         self.appearanceRawValue = appearanceRawValue
         self.accentColorRawValue = accentColorRawValue
         self.customAccentHex = customAccentHex
         self.waterGoalML = min(max(waterGoalML, 500), 6_000)
+        self.calorieGoal = min(max(calorieGoal, 1_000), 6_000)
         self.createdAt = Date()
         self.updatedAt = Date()
     }

@@ -29,6 +29,7 @@ final class AppProgressBarTests: XCTestCase {
 
 // MARK: - PasukiAccentColorSelectionTests
 
+@MainActor
 final class PasukiAccentColorSelectionTests: XCTestCase {
 
     // MARK: - Testzugriff
@@ -66,6 +67,57 @@ final class PasukiSharedSettingsTests: XCTestCase {
         XCTAssertEqual(PasukiColorPreset.blue.rawValue, "blue")
         XCTAssertEqual(PasukiColorPreset.blue.hex, "#007AFF")
         XCTAssertEqual(PasukiColorPreset.allCases.count, 10)
+    }
+
+    func testProProductConfigurationMapsFeatures() {
+        let configuration = PasukiProProductConfiguration(
+            featureByProductIdentifier: [
+                "de.pasukistudio.elyra-vita.pro": .customAccentColor
+            ]
+        )
+
+        XCTAssertEqual(
+            configuration.productIdentifiers,
+            ["de.pasukistudio.elyra-vita.pro"]
+        )
+        XCTAssertEqual(
+            configuration.featureByProductIdentifier[
+                "de.pasukistudio.elyra-vita.pro"
+            ],
+            .customAccentColor
+        )
+    }
+
+    @MainActor
+    func testCloudKitMonitorCanRepresentDisabledSync() {
+        let monitor = PasukiCloudKitSyncMonitor(isEnabled: false)
+
+        XCTAssertEqual(monitor.status, .unavailable)
+        XCTAssertEqual(monitor.status.title, "iCloud nicht aktiv")
+    }
+
+    func testTimestampConflictPolicyUsesNewestVersion() {
+        let local = Date(timeIntervalSince1970: 100)
+        let remote = Date(timeIntervalSince1970: 101)
+
+        XCTAssertTrue(
+            PasukiTimestampConflictPolicy.shouldApplyRemoteChange(
+                localUpdatedAt: local,
+                remoteUpdatedAt: remote
+            )
+        )
+        XCTAssertFalse(
+            PasukiTimestampConflictPolicy.shouldApplyRemoteChange(
+                localUpdatedAt: remote,
+                remoteUpdatedAt: local
+            )
+        )
+        XCTAssertFalse(
+            PasukiTimestampConflictPolicy.shouldApplyRemoteChange(
+                localUpdatedAt: local,
+                remoteUpdatedAt: local
+            )
+        )
     }
 }
 
