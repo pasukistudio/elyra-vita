@@ -33,6 +33,12 @@ struct ContentView: View {
     /// Steuert die Präsentation der Ansicht zum Gewicht erfassen.
     @State private var showingAddWeight = false
 
+    /// Steuert die Präsentation der Ansicht zum Ernährungseintrag.
+    @State private var showingAddNutrition = false
+
+    /// Mahlzeitentyp, der aus dem Toolbar-Menü vorgewählt wurde.
+    @State private var selectedNutritionMealType: NutritionMealType = .snack
+
     /// Gespeicherte Einstellungen, automatisch von SwiftData beobachtet.
     @Query private var userSettings: [UserSettings]
 
@@ -102,6 +108,16 @@ struct ContentView: View {
                 .presentationDragIndicator(.visible)
                 .presentationBackground(.regularMaterial)
             }
+            .sheet(isPresented: $showingAddNutrition) {
+                AddNutritionEntryView(
+                    selectedDate: selectedDate,
+                    accentColor: selectedAccentColor,
+                    initialMealType: selectedNutritionMealType
+                )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(.regularMaterial)
+            }
             .appBackground()
         }
     }
@@ -147,9 +163,21 @@ struct ContentView: View {
             showingAddWater = true
         case .weight:
             showingAddWeight = true
-        case .meal, .breakfast, .lunch, .dinner, .snack:
-            // Die jeweiligen Erfassungs-Views folgen in den passenden Features.
-            break
+        case .meal:
+            selectedNutritionMealType = .snack
+            showingAddNutrition = true
+        case .breakfast:
+            selectedNutritionMealType = .breakfast
+            showingAddNutrition = true
+        case .lunch:
+            selectedNutritionMealType = .lunch
+            showingAddNutrition = true
+        case .dinner:
+            selectedNutritionMealType = .dinner
+            showingAddNutrition = true
+        case .snack:
+            selectedNutritionMealType = .snack
+            showingAddNutrition = true
         }
     }
 
@@ -182,7 +210,11 @@ struct ContentView: View {
 
     /// Der Ernaehrungs-Tab.
     private var nutrition: some View {
-        NutritionView()
+        NutritionView(
+            selectedDate: selectedDate,
+            calorieGoal: userSettings.first?.calorieGoal ?? 1_800,
+            accentColor: selectedAccentColor
+        )
             .tabItem {
                 Label(
                     AppSection.nutrition.title,
@@ -334,7 +366,8 @@ struct ContentView: View {
             for: [
                 UserSettings.self,
                 WaterEntry.self,
-                WeightEntry.self
+                WeightEntry.self,
+                NutritionEntry.self
             ],
             inMemory: true
         )

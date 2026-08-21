@@ -132,6 +132,84 @@ final class WaterAndHealthTests: XCTestCase {
         XCTAssertEqual(entries.first?.date, measurementDate)
     }
 
+    // MARK: - Ernährung
+
+    /// Prüft die bewusst gewählte Reihenfolge im Tageslogbuch.
+    func testNutritionMealTypesUseRequestedDisplayOrder() {
+        XCTAssertEqual(
+            [NutritionMealType.dinner, .lunch, .breakfast, .snack]
+                .map(\.displayOrder),
+            [0, 1, 2, 3]
+        )
+    }
+
+    /// Prüft Stückeinheiten und die Umrechnung auf die Basis-Nährwertmenge.
+    func testNutritionFoodProvidesPieceUnitConversion() {
+        let egg = NutritionFood.localCatalog.first { $0.id == "egg" }
+
+        XCTAssertEqual(egg?.unitOptions.map(\.symbol), ["g", "Stück"])
+        XCTAssertEqual(egg?.baseAmount(for: 1, unit: "piece"), 60)
+    }
+
+    /// Prüft Tagesaggregation, Änderungszeitstempel und Löschen eines Eintrags.
+    func testNutritionEntrySupportsDailyAggregationAndDeletion() throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let selectedDay = try XCTUnwrap(
+            calendar.date(from: DateComponents(year: 2026, month: 8, day: 21))
+        )
+        let container = try makeInMemoryContainer()
+        let context = ModelContext(container)
+        let firstEntry = NutritionEntry(
+            foodName: "Weizenbrötchen",
+            mealType: .breakfast,
+            amount: 85,
+            unit: "g",
+            calories: 230,
+            proteinGrams: 7.2,
+            carbohydratesGrams: 44.2,
+            fatGrams: 2.7,
+            sugarGrams: 2.9,
+            fiberGrams: 2.6,
+            saturatedFatGrams: 0.4,
+            saltGrams: 1.0,
+            date: selectedDay
+        )
+        let secondEntry = NutritionEntry(
+            foodName: "Apfel",
+            mealType: .snack,
+            amount: 150,
+            unit: "g",
+            calories: 78,
+            date: selectedDay
+        )
+
+        context.insert(firstEntry)
+        context.insert(secondEntry)
+        try context.save()
+
+        let entries = try context.fetch(FetchDescriptor<NutritionEntry>())
+        let total = entries
+            .filter { calendar.isDate($0.date, inSameDayAs: selectedDay) }
+            .reduce(0) { $0 + $1.calories }
+        let originalUpdatedAt = firstEntry.updatedAt
+
+        firstEntry.update(mealType: .lunch, amount: 100, date: selectedDay)
+        try context.save()
+
+        XCTAssertEqual(total, 308)
+        XCTAssertEqual(firstEntry.mealType, .lunch)
+        XCTAssertEqual(firstEntry.amount, 100)
+        XCTAssertEqual(firstEntry.sugarGrams, 2.9)
+        XCTAssertEqual(firstEntry.fiberGrams, 2.6)
+        XCTAssertEqual(firstEntry.saturatedFatGrams, 0.4)
+        XCTAssertEqual(firstEntry.saltGrams, 1.0)
+        XCTAssertGreaterThanOrEqual(firstEntry.updatedAt, originalUpdatedAt)
+
+        context.delete(secondEntry)
+        try context.save()
+        XCTAssertEqual(try context.fetch(FetchDescriptor<NutritionEntry>()).count, 1)
+    }
+
     // MARK: - Wasserziel
 
     /// Prüft die unteren und oberen Grenzen des Wasserziels.
@@ -225,7 +303,7 @@ final class WaterAndHealthTests: XCTestCase {
 
     /// Erstellt für jeden Test einen isolierten SwiftData-Speicher.
     private func makeInMemoryContainer() throws -> ModelContainer {
-        let schema = Schema([WaterEntry.self, WeightEntry.self])
+        let schema = Schema([WaterEntry.self, WeightEntry.self, NutritionEntry.self])
         let configuration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: true

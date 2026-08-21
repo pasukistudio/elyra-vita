@@ -14,6 +14,9 @@ struct OverviewView: View {
     @Query(sort: \WaterEntry.date, order: .forward)
     private var waterEntries: [WaterEntry]
 
+    @Query(sort: \NutritionEntry.date, order: .forward)
+    private var nutritionEntries: [NutritionEntry]
+
     @State private var healthMetrics: HealthMetrics?
     @State private var healthErrorMessage: String?
 
@@ -49,6 +52,28 @@ struct OverviewView: View {
             .reduce(0) { $0 + $1.amount }
     }
 
+    /// Summiert die gespeicherten Ernährungseinträge des ausgewählten Tages.
+    private var consumedCalories: Int {
+        Int(dayNutritionEntries.reduce(0) { $0 + $1.calories }.rounded())
+    }
+
+    /// Liefert nur die Ernährungseinträge des aktuell ausgewählten Tages.
+    /// Dadurch bleiben Kalorien und Makronährstoffe immer synchron.
+    private var dayNutritionEntries: [NutritionEntry] {
+        nutritionEntries.filter {
+            Calendar.current.isDate($0.date, inSameDayAs: selectedDate)
+        }
+    }
+
+    /// Summiert einen Nährwert des Tages. Ohne Einträge bleibt der Wert nil,
+    /// damit die Übersicht „– g“ statt eines irreführenden Nullwerts zeigt.
+    private func nutritionTotal(
+        _ keyPath: KeyPath<NutritionEntry, Double>
+    ) -> Double? {
+        guard !dayNutritionEntries.isEmpty else { return nil }
+        return dayNutritionEntries.reduce(0) { $0 + $1[keyPath: keyPath] }
+    }
+
     var body: some View {
         List {
             // MARK: - Tagesziele
@@ -56,6 +81,7 @@ struct OverviewView: View {
             /// Kalorien und Wasser werden kompakt in einer gemeinsamen Karte angezeigt.
             Section {
                 CalorieWaterSummaryCard(
+                    consumedCalories: consumedCalories,
                     calorieGoal: calorieGoal,
                     consumedWater: consumedWater,
                     waterGoal: waterGoal,
@@ -74,6 +100,9 @@ struct OverviewView: View {
                 DailyMetricsSummaryCard(
                     accentColor: accentColor,
                     healthMetrics: healthMetrics,
+                    nutritionProteinGrams: nutritionTotal(\.proteinGrams),
+                    nutritionCarbohydratesGrams: nutritionTotal(\.carbohydratesGrams),
+                    nutritionFatGrams: nutritionTotal(\.fatGrams),
                     onMetricTap: onOpenHealthMetric
                 )
                 .listRowInsets(EdgeInsets())
@@ -150,6 +179,9 @@ struct OverviewView: View {
 
 // MARK: - Preview
 #Preview("OverviewView") {
-    OverviewView(accentColor: .blue)
-        .modelContainer(for: [WaterEntry.self], inMemory: true)
+OverviewView(accentColor: .blue)
+        .modelContainer(
+            for: [WaterEntry.self, NutritionEntry.self],
+            inMemory: true
+        )
 }
