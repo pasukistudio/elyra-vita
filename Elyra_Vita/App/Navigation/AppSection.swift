@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - AppSection
 
-/// Die fünf Hauptbereiche der Tab-Navigation.
+/// Die vier Hauptbereiche der Tab-Navigation.
 enum AppSection: String, CaseIterable, Identifiable {
     // MARK: - Tab-Bereiche
 
@@ -10,7 +10,6 @@ enum AppSection: String, CaseIterable, Identifiable {
     case nutrition
     case planning
     case recipies
-    case progress
 
     // MARK: - Identifiable
 
@@ -33,9 +32,6 @@ enum AppSection: String, CaseIterable, Identifiable {
 
         case .recipies:
             return "Rezepte"
-
-        case .progress:
-            return "Gesundheit"
         }
     }
 
@@ -54,9 +50,6 @@ enum AppSection: String, CaseIterable, Identifiable {
 
         case .recipies:
             return "book.closed.fill"
-
-        case .progress:
-            return "chart.line.uptrend.xyaxis"
         }
     }
 }

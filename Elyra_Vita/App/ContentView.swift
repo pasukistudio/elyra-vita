@@ -39,6 +39,10 @@ struct ContentView: View {
     /// Steuert die Navigation zur SettingsView.
     @State private var showingSettings = false
 
+    /// Steuert die Navigation zu einem einzelnen Gesundheitstrend.
+    @State private var selectedHealthMetric: HealthTrendMetric?
+    @State private var selectedHealthMetricDate = Date()
+
     // MARK: - Ansicht
     var body: some View {
         NavigationStack {
@@ -48,7 +52,6 @@ struct ContentView: View {
                     nutrition
                     planning
                     recipies
-                    progress
                 }
             }
             .toolbar {
@@ -59,6 +62,17 @@ struct ContentView: View {
             .preferredColorScheme(preferredColorScheme)
             .navigationDestination(isPresented: $showingSettings) {
                 SettingsView()
+            }
+            .navigationDestination(item: $selectedHealthMetric) { metric in
+                HealthTrendView(
+                    metric: metric,
+                    accentColor: selectedAccentColor,
+                    referenceDate: selectedHealthMetricDate,
+                    onAddWater: {
+                        selectedDate = selectedHealthMetricDate
+                        showingAddWater = true
+                    }
+                )
             }
             .sheet(isPresented: $showingDatePicker) {
                 DatePickerView(
@@ -148,8 +162,13 @@ struct ContentView: View {
             calorieGoal: userSettings.first?.calorieGoal ?? 1_800,
             waterGoal: userSettings.first?.waterGoalML ?? 2_500,
             accentColor: selectedAccentColor,
-            onOpenWater: {
-                showingAddWater = true
+            onOpenWaterTrend: {
+                selectedHealthMetric = .water
+                selectedHealthMetricDate = selectedDate
+            },
+            onOpenHealthMetric: { metric in
+                selectedHealthMetric = metric
+                selectedHealthMetricDate = selectedDate
             }
         )
             .tabItem {
@@ -195,18 +214,6 @@ struct ContentView: View {
                 )
             }
             .tag(AppSection.recipies)
-    }
-
-    /// Der Gesundheits-Tab.
-    private var progress: some View {
-        ProgressView(accentColor: selectedAccentColor)
-            .tabItem {
-                Label(
-                    AppSection.progress.title,
-                    systemImage: AppSection.progress.icon
-                )
-            }
-            .tag(AppSection.progress)
     }
 
     // MARK: - Datumsnavigation

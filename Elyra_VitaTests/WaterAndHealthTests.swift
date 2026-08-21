@@ -159,6 +159,24 @@ final class WaterAndHealthTests: XCTestCase {
         )
     }
 
+    // MARK: - Gesundheitstrends
+
+    /// Prüft die gemeinsamen Trendzeiträume.
+    func testHealthTrendRangesUseExpectedDurations() {
+        XCTAssertEqual(HealthTrendRange.week.days, 7)
+        XCTAssertEqual(HealthTrendRange.month.days, 30)
+        XCTAssertEqual(HealthTrendRange.threeMonths.days, 90)
+        XCTAssertEqual(HealthTrendRange.year.days, 365)
+    }
+
+    /// Prüft, dass lokale und Apple-Health-Metriken klar getrennt bleiben.
+    func testHealthTrendMetricsDeclareTheirDataSource() {
+        XCTAssertTrue(HealthTrendMetric.steps.usesHealthKit)
+        XCTAssertTrue(HealthTrendMetric.totalEnergy.usesHealthKit)
+        XCTAssertFalse(HealthTrendMetric.weight.usesHealthKit)
+        XCTAssertFalse(HealthTrendMetric.water.usesHealthKit)
+    }
+
     /// Prüft, dass feste Farben aus der gemeinsamen PasukiUI-Palette kommen.
     func testAccentColorUsesSharedPresetValues() throws {
         let accentColor = try XCTUnwrap(AppAccentColor(rawValue: "blue"))

@@ -21,14 +21,43 @@ struct ProgressView: View {
     @State private var selectedRange: ChartRange = .month
 
     let accentColor: Color
+    let onOpenTrend: (HealthTrendMetric) -> Void
 
-    init(accentColor: Color = .blue) {
+    init(
+        accentColor: Color = .blue,
+        onOpenTrend: @escaping (HealthTrendMetric) -> Void = { _ in }
+    ) {
         self.accentColor = accentColor
+        self.onOpenTrend = onOpenTrend
     }
     // MARK: - Ansicht
 
     var body: some View {
         List {
+            Section("Trends") {
+                ForEach(HealthTrendMetric.allCases.filter { $0 != .weight }) { metric in
+                    Button {
+                        onOpenTrend(metric)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: metric.systemImage)
+                                .foregroundStyle(metric.color)
+                                .frame(width: 28)
+
+                            Text(metric.title)
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Trend anzeigen")
+                }
+            }
+
             Section("Gewicht") {
                 summaryCard
             }

@@ -13,6 +13,7 @@ struct AddWaterView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @State private var customAmountText = ""
+    @State private var editingEntry: WaterEntry?
     @State private var entryToDelete: WaterEntry?
     @State private var deleteErrorMessage: String?
     @FocusState private var customAmountFocused: Bool
@@ -30,6 +31,7 @@ struct AddWaterView: View {
 
     /// Akzentfarbe aus den App-Einstellungen.
     let accentColor: Color
+    let entryToEdit: WaterEntry?
 
     /// Übergibt eine Menge an die spätere HealthKit-/SwiftData-Anbindung.
     let onAddWater: (Int) -> Void
@@ -42,11 +44,17 @@ struct AddWaterView: View {
     init(
         selectedDate: Date = .now,
         accentColor: Color = .blue,
+        entryToEdit: WaterEntry? = nil,
         onAddWater: @escaping (Int) -> Void = { _ in }
     ) {
         self.selectedDate = selectedDate
         self.accentColor = accentColor
+        self.entryToEdit = entryToEdit
         self.onAddWater = onAddWater
+        _editingEntry = State(initialValue: entryToEdit)
+        _customAmountText = State(
+            initialValue: entryToEdit.map { String($0.amount) } ?? ""
+        )
     }
 
     // MARK: - Ansicht
@@ -55,7 +63,9 @@ struct AddWaterView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    quickAddCard
+                    if editingEntry == nil {
+                        quickAddCard
+                    }
                     customAmountCard
                     dailyLogCard
                 }
@@ -154,7 +164,10 @@ struct AddWaterView: View {
 
     private var customAmountCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            sectionTitle("Eigene Menge", systemImage: "slider.horizontal.3")
+            sectionTitle(
+                editingEntry == nil ? "Eigene Menge" : "Menge bearbeiten",
+                systemImage: "slider.horizontal.3"
+            )
 
             HStack(spacing: 12) {
                 TextField("z. B. 330", text: $customAmountText)
@@ -173,8 +186,14 @@ struct AddWaterView: View {
                     .font(.body.weight(.medium))
                     .foregroundStyle(.secondary)
 
-                Button { addCustomAmount() } label: {
-                    Image(systemName: "plus")
+                Button {
+                    if editingEntry == nil {
+                        addCustomAmount()
+                    } else {
+                        updateWaterEntry()
+                    }
+                } label: {
+                    Image(systemName: editingEntry == nil ? "plus" : "checkmark")
                         .font(.headline.weight(.bold))
                         .frame(width: 48, height: 48)
                         .foregroundStyle(accentColor)
@@ -185,7 +204,9 @@ struct AddWaterView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(customAmount == nil)
-                .accessibilityLabel("Eigene Menge hinzufügen")
+                .accessibilityLabel(
+                    editingEntry == nil ? "Eigene Menge hinzufügen" : "Wassermenge speichern"
+                )
             }
         }
         .appCard()
@@ -249,7 +270,7 @@ struct AddWaterView: View {
 
     // MARK: - Aktionen und Werte
 
-    private func sectionTitle(_ title: LocalizedStringKey, systemImage: String) -> some View {
+    private func sectionTitle(_ title: String, systemImage: String) -> some View {
         Label(title, systemImage: systemImage)
             .font(.headline)
     }
@@ -276,6 +297,25 @@ struct AddWaterView: View {
         onAddWater(amount)
         customAmountText = ""
         customAmountFocused = false
+    }
+
+    // MARK: - Bearbeiten
+
+    /// Aktualisiert einen bestehenden Wasserwert inklusive Zeitstempel.
+    private func updateWaterEntry() {
+        guard let amount = customAmount, let editingEntry else { return }
+
+        editingEntry.update(amount: amount)
+
+        do {
+            try modelContext.save()
+            self.editingEntry = nil
+            customAmountText = ""
+            customAmountFocused = false
+        } catch {
+            logger.error("Wassereintrag konnte nicht aktualisiert werden: \(error.localizedDescription)")
+            deleteErrorMessage = "Der Wassereintrag konnte nicht aktualisiert werden."
+        }
     }
 
     // MARK: - Löschen
