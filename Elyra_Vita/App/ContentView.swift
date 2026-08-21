@@ -30,6 +30,9 @@ struct ContentView: View {
     /// Steuert die Präsentation der Ansicht zum Wasser hinzufügen.
     @State private var showingAddWater = false
 
+    /// Steuert die Präsentation der Ansicht zum Gewicht erfassen.
+    @State private var showingAddWeight = false
+
     /// Gespeicherte Einstellungen, automatisch von SwiftData beobachtet.
     @Query private var userSettings: [UserSettings]
 
@@ -76,6 +79,15 @@ struct ContentView: View {
                     .presentationDragIndicator(.visible)
                     .presentationBackground(.regularMaterial)
             }
+            .sheet(isPresented: $showingAddWeight) {
+                AddWeightView(
+                    selectedDate: selectedDate,
+                    accentColor: selectedAccentColor
+                )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(.regularMaterial)
+            }
             .appBackground()
         }
     }
@@ -119,7 +131,9 @@ struct ContentView: View {
         switch action {
         case .water:
             showingAddWater = true
-        case .meal, .weight, .breakfast, .lunch, .dinner, .snack:
+        case .weight:
+            showingAddWeight = true
+        case .meal, .breakfast, .lunch, .dinner, .snack:
             // Die jeweiligen Erfassungs-Views folgen in den passenden Features.
             break
         }
@@ -183,9 +197,9 @@ struct ContentView: View {
             .tag(AppSection.recipies)
     }
 
-    /// Der Fortschritts-Tab.
+    /// Der Gesundheits-Tab.
     private var progress: some View {
-        ProgressView()
+        ProgressView(accentColor: selectedAccentColor)
             .tabItem {
                 Label(
                     AppSection.progress.title,
@@ -312,7 +326,8 @@ struct ContentView: View {
         .modelContainer(
             for: [
                 UserSettings.self,
-                WaterEntry.self
+                WaterEntry.self,
+                WeightEntry.self
             ],
             inMemory: true
         )

@@ -35,7 +35,7 @@ enum AppSection: String, CaseIterable, Identifiable {
             return "Rezepte"
 
         case .progress:
-            return "Fortschritt"
+            return "Gesundheit"
         }
     }
 

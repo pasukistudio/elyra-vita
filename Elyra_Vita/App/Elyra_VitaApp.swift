@@ -68,7 +68,8 @@ struct Elyra_VitaApp: App {
         // Das Schema beschreibt die Modelle, die SwiftData speichern darf.
         let schema = Schema([
             UserSettings.self,
-            WaterEntry.self
+            WaterEntry.self,
+            WeightEntry.self
         ])
 
         // Die Daten bleiben auch nach dem Neustart der App erhalten.
