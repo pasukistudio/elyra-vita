@@ -24,6 +24,8 @@ final class Elyra_VitaUITestsLaunchTests: XCTestCase {
     @MainActor
     func testLaunch() throws {
         let app = XCUIApplication()
+        // Der UI-Test prüft den App-Start isoliert von iCloud/CloudKit.
+        app.launchArguments.append("--disable-cloudkit")
         app.launch()
 
         // Insert steps here to perform after app launch but before taking a screenshot,

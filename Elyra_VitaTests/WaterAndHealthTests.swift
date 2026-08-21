@@ -45,6 +45,32 @@ final class WaterAndHealthTests: XCTestCase {
         XCTAssertEqual(selectedDayTotal, 750)
     }
 
+    /// Prüft, dass ein Wassereintrag getrennte Erstellungs- und
+    /// Änderungszeitpunkte mitbringt.
+    func testWaterEntryStoresSynchronizationTimestamps() throws {
+        let createdAt = Date(timeIntervalSince1970: 1_000)
+        let entry = WaterEntry(date: createdAt, amount: 330)
+
+        XCTAssertGreaterThanOrEqual(entry.createdAt, createdAt)
+        XCTAssertEqual(entry.createdAt, entry.updatedAt)
+    }
+
+    /// Prüft das Löschen eines Wassereintrags aus dem lokalen SwiftData-Store.
+    func testWaterEntryCanBeDeleted() throws {
+        let container = try makeInMemoryContainer()
+        let context = ModelContext(container)
+        let entry = WaterEntry(amount: 500)
+
+        context.insert(entry)
+        try context.save()
+        XCTAssertEqual(try context.fetch(FetchDescriptor<WaterEntry>()).count, 1)
+
+        context.delete(entry)
+        try context.save()
+
+        XCTAssertTrue(try context.fetch(FetchDescriptor<WaterEntry>()).isEmpty)
+    }
+
     // MARK: - Wasserziel
 
     /// Prüft die unteren und oberen Grenzen des Wasserziels.
