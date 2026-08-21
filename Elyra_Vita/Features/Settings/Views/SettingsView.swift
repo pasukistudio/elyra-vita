@@ -2,9 +2,25 @@ import SwiftData
 import OSLog
 import SwiftUI
 import UniformTypeIdentifiers
+import PasukiUI
 
+// MARK: - SettingsView
+
+/// Verwaltet Profil, Tagesziele, Darstellung und Support-Einstellungen.
 struct SettingsView: View {
+    // MARK: - Abhängigkeiten und Zustand
+
     @Environment(\.modelContext) private var modelContext
+
+    private let configuration = PasukiSettingsConfiguration(
+        appName: "Elyra Vita",
+        supportURL: "mailto:support@pasukistudio.de?subject=Elyra%20Vita%20Support",
+        privacyURL: "https://pasukistudio.de/datenschutz/",
+        eulaURL: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/",
+        projectURL: "https://github.com/pasukistudio/elyra-vita",
+        issuesURL: "https://github.com/pasukistudio/elyra-vita/issues",
+        customColorProMessage: "Eigene Farben sind Bestandteil von Elyra Vita Pro."
+    )
 
     @State private var draftName = ""
     @State private var saveErrorMessage: String?
@@ -14,22 +30,32 @@ struct SettingsView: View {
         category: "Settings"
     )
 
-
+    // MARK: - Persistierte Profile
     @Query(
         sort: \UserSettings.updatedAt,
         order: .reverse
     )
     private var profiles: [UserSettings]
 
+    // MARK: - Ansicht
+
     var body: some View {
         Form {
-            profileSection          //Profil Sektion
-            dailyGoalsSection       //Tagesziele Sektion
-            appearanceSection       //Erscheinungsbild Sektion
-            accentColorSection      //Akzentfarbe Sektion
-            supportSection          //Support Sektion
-            legalSection            //Rechtliches Sektion
-            aboutSection            //Über Sektion
+            profileSection
+            dailyGoalsSection
+            appearanceSection
+            accentColorSection
+            PasukiSupportSection(supportURL: url(configuration.supportURL))
+            PasukiLegalSection(
+                privacyURL: url(configuration.privacyURL),
+                eulaURL: url(configuration.eulaURL)
+            )
+            PasukiAboutSection(
+                appName: configuration.appName,
+                appVersion: appVersion,
+                projectURL: url(configuration.projectURL),
+                issuesURL: url(configuration.issuesURL)
+            )
         }
         .navigationTitle("Einstellungen")
 
@@ -47,6 +73,23 @@ struct SettingsView: View {
         .onDisappear {
             saveName()
         }
+        .alert(
+            "Einstellungen konnten nicht gespeichert werden",
+            isPresented: Binding(
+                get: { saveErrorMessage != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        saveErrorMessage = nil
+                    }
+                }
+            )
+        ) {
+            Button("OK") {
+                saveErrorMessage = nil
+            }
+        } message: {
+            Text(saveErrorMessage ?? "Unbekannter Fehler")
+        }
     }
 
     // MARK: - Tagesziele Sektion
@@ -60,7 +103,7 @@ struct SettingsView: View {
                         get: { profile.waterGoalML },
                         set: { value in
                             profile.waterGoalML = value
-                            profile.updatedAt = .now
+                            profile.markUpdated()
                             saveSettings()
                         }
                     ),
@@ -123,7 +166,7 @@ struct SettingsView: View {
                             profile.appearanceRawValue =
                             appearance.rawValue
 
-                            profile.updatedAt = Date()
+                            profile.markUpdated()
                             saveSettings()
                         }
                     )
@@ -152,9 +195,7 @@ struct SettingsView: View {
         } header: {
             Text("Akzentfarbe")
         } footer: {
-            Text(
-                "Eigene Farben sind Bestandteil von Elyra Vita Pro."
-            )
+            Text(configuration.customColorProMessage)
         }
     }
 
@@ -170,45 +211,19 @@ struct SettingsView: View {
             onPresetSelected: { preset in
                 profile.customAccentHex = preset.hex
                 profile.accentColorRawValue =
-                AppAccentColor(rawValue: preset.rawValue)?.rawValue
-                ?? AppAccentColor.blue.rawValue
-                profile.updatedAt = .now
+                AppAccentColor(rawValue: preset.rawValue).rawValue
+                profile.markUpdated()
                 saveSettings()
             },
             onCustomColorChanged: { hex in
                 profile.customAccentHex = hex
                 profile.accentColorRawValue = AppAccentColor.custom.rawValue
-                profile.updatedAt = .now
+                profile.markUpdated()
                 saveSettings()
             }
         )
     }
 
-
-    // MARK: - Support Section
-
-    private var supportSection: some View {
-        Section("Hilfe & Support") {
-            Link(destination: URL(string: "mailto:support@pasukistudio.de?subject=Elyra%20Vita%20Support")!) {
-                Label("Support per E-Mail", systemImage: "envelope.fill")
-            }
-        }
-    }
-
-
-    // MARK: - Rechtliches Sektion
-
-    private var legalSection: some View {
-        Section("Rechtliches") {
-            Link(destination: URL(string: "https://pasukistudio.de/datenschutz/")!) {
-                Label("Datenschutz", systemImage: "hand.raised.fill")
-            }
-
-            Link(destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!) {
-                Label("Nutzungsbedingungen (EULA)", systemImage: "doc.text.fill")
-            }
-        }
-    }
 
     private var appVersion: String {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "–"
@@ -216,23 +231,10 @@ struct SettingsView: View {
         return "\(version) (Build \(build))"
     }
 
-    // MARK: - Über Sektion
+    // MARK: - URL-Hilfen
 
-    private var aboutSection: some View {
-        Section("Über Elyra Vita") {
-            LabeledContent("Version") {
-                Text(appVersion)
-                    .foregroundStyle(.secondary)
-            }
-
-            Link(destination: URL(string: "https://github.com/pasukistudio/elyra-vita")!) {
-                Label("Projekt auf GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
-            }
-
-            Link(destination: URL(string: "https://github.com/pasukistudio/elyra-vita/issues")!) {
-                Label("Fehler auf GitHub melden", systemImage: "ladybug")
-            }
-        }
+    private func url(_ string: String) -> URL? {
+        URL(string: string)
     }
 
     // MARK: - Namensverwaltung
@@ -260,7 +262,7 @@ struct SettingsView: View {
         }
 
         profile.name = cleanedName
-        profile.updatedAt = Date()
+        profile.markUpdated()
 
         saveSettings()
     }

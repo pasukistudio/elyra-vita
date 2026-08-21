@@ -1,7 +1,9 @@
 import SwiftUI
 import SwiftData
 
+// MARK: - OverviewView
 
+/// Zeigt Tagesziele, Gesundheitswerte und den aktuellen Wasserverbrauch an.
 struct OverviewView: View {
 
     // MARK: - Daten
@@ -15,7 +17,8 @@ struct OverviewView: View {
     @State private var healthMetrics: HealthMetrics?
     @State private var healthErrorMessage: String?
 
-    // MARK: - Ansicht
+    // MARK: - Eingaben
+
     let accentColor: Color
     let waterGoal: Int
     let onOpenWater: () -> Void
@@ -119,6 +122,10 @@ struct OverviewView: View {
     private func loadHealthMetrics() async {
         healthMetrics = nil
         healthErrorMessage = nil
+
+        guard !HealthKitService.isDisabledForCurrentProcess else {
+            return
+        }
 
         do {
             let service = HealthKitService.shared

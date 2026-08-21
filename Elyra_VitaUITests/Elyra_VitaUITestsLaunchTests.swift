@@ -7,6 +7,9 @@
 
 import XCTest
 
+// MARK: - Elyra_VitaUITestsLaunchTests
+
+/// Prüft den isolierten App-Start und erzeugt einen dauerhaft sichtbaren Screenshot.
 final class Elyra_VitaUITestsLaunchTests: XCTestCase {
     // MARK: - Test-Konfiguration
 
@@ -26,6 +29,7 @@ final class Elyra_VitaUITestsLaunchTests: XCTestCase {
         let app = XCUIApplication()
         // Der UI-Test prüft den App-Start isoliert von iCloud/CloudKit.
         app.launchArguments.append("--disable-cloudkit")
+        app.launchArguments.append("--disable-healthkit")
         app.launch()
 
         // Insert steps here to perform after app launch but before taking a screenshot,
@@ -37,5 +41,44 @@ final class Elyra_VitaUITestsLaunchTests: XCTestCase {
         attachment.name = "Launch Screen"
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    // MARK: - Toolbar-Menüs
+
+    func testOverviewToolbarMenuContainsOverviewActions() {
+        let app = launchedApp()
+
+        app.buttons["toolbar.addMenu"].tap()
+
+        XCTAssertTrue(app.buttons["toolbar.action.meal"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["toolbar.action.water"].exists)
+        XCTAssertTrue(app.buttons["toolbar.action.weight"].exists)
+        XCTAssertFalse(app.buttons["toolbar.action.breakfast"].exists)
+    }
+
+    func testNutritionToolbarMenuContainsNutritionActions() {
+        let app = launchedApp()
+        let nutritionTab = app.tabBars.buttons["Ernährung"]
+
+        XCTAssertTrue(nutritionTab.waitForExistence(timeout: 2))
+        nutritionTab.tap()
+        app.buttons["toolbar.addMenu"].tap()
+
+        XCTAssertTrue(app.buttons["toolbar.action.breakfast"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["toolbar.action.lunch"].exists)
+        XCTAssertTrue(app.buttons["toolbar.action.dinner"].exists)
+        XCTAssertTrue(app.buttons["toolbar.action.snack"].exists)
+        XCTAssertTrue(app.buttons["toolbar.action.water"].exists)
+        XCTAssertFalse(app.buttons["toolbar.action.weight"].exists)
+    }
+
+    // MARK: - Test-Helfer
+
+    private func launchedApp() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments.append("--disable-cloudkit")
+        app.launchArguments.append("--disable-healthkit")
+        app.launch()
+        return app
     }
 }

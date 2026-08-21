@@ -1,10 +1,3 @@
-//
-//  Calorie&WaterSummaryCard.swift
-//  Elyra_Vita
-//
-//  Created by Pascal Smigielski on 19.08.26.
-//
-
 import SwiftUI
 import PasukiUI
 

@@ -1,10 +1,14 @@
 import Foundation
 import HealthKit
 
+// MARK: - HealthKit-Datenmodell
+
 // MARK: - Tageswerte
 
 /// Bündelt die aus Apple Health gelesenen Werte eines einzelnen Tages.
 struct HealthMetrics: Sendable {
+    // MARK: - Messwerte
+
     let steps: Double?
     let walkingRunningDistanceKilometers: Double?
     let activeEnergyKilocalories: Double?
@@ -42,9 +46,21 @@ struct HealthMetrics: Sendable {
 final class HealthKitService {
     static let shared = HealthKitService()
 
+    /// Verhindert HealthKit-Aufrufe in isolierten Tests und Previews.
+    static var isDisabledForCurrentProcess: Bool {
+        let environment = ProcessInfo.processInfo.environment
+        return environment["XCTestConfigurationFilePath"] != nil ||
+            environment["XCInjectBundleInto"] != nil ||
+            environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" ||
+            environment["ELYRA_VITA_DISABLE_HEALTHKIT"] == "YES" ||
+            ProcessInfo.processInfo.arguments.contains("--disable-healthkit")
+    }
+
     // MARK: - Abhängigkeiten
 
     private let healthStore = HKHealthStore()
+
+    private var authorizationWasRequested = false
 
     private init() {}
 
@@ -67,17 +83,34 @@ final class HealthKitService {
     }
 
     func requestAuthorization() async throws {
+        guard !Self.isDisabledForCurrentProcess else { return }
+
         guard HKHealthStore.isHealthDataAvailable() else {
             throw HealthKitError.unavailable
         }
 
+        guard !authorizationWasRequested else { return }
         try await healthStore.requestAuthorization(toShare: [], read: readTypes)
+        authorizationWasRequested = true
     }
 
     // MARK: - Tagesabfrage
 
     /// Lädt alle unterstützten Gesundheitswerte für den ausgewählten Kalendertag.
     func metrics(for date: Date) async throws -> HealthMetrics {
+        guard !Self.isDisabledForCurrentProcess else {
+            return HealthMetrics(
+                steps: nil,
+                walkingRunningDistanceKilometers: nil,
+                activeEnergyKilocalories: nil,
+                basalEnergyKilocalories: nil,
+                weightKilograms: nil,
+                proteinGrams: nil,
+                carbohydratesGrams: nil,
+                fatGrams: nil
+            )
+        }
+
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: date)
         guard let end = calendar.date(byAdding: .day, value: 1, to: start) else {

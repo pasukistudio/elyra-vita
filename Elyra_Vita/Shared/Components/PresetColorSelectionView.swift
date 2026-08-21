@@ -1,6 +1,9 @@
 import SwiftUI
+import PasukiUI
 
+// MARK: - PresetColorSelectionView
 
+/// Wählt eine Elyra-Vita-Presetfarbe oder einen eigenen Farbwert aus.
 struct PresetColorSelectionView: View {
     // MARK: - Eingaben und Aktionen
 
@@ -15,6 +18,10 @@ struct PresetColorSelectionView: View {
 
     /// Wird ausgefuehrt, wenn der Benutzer eine eigene Farbe waehlt.
     var onCustomColorChanged: ((String) -> Void)? = nil
+
+    /// Optionaler gemeinsamer Pro-Zugriff. Ohne Service bleibt die bisherige
+    /// freie Auswahl aktiv, bis die App ihren StoreKit-Service einspeist.
+    var proAccess: (any PasukiProAccess)? = nil
 
     /// Anzahl und Verhalten der Spalten im Farbraster.
     var columns: [GridItem] = Array(
@@ -63,12 +70,19 @@ struct PresetColorSelectionView: View {
             ) {
                 Label("Eigene Farbe", systemImage: "paintpalette")
             }
+            .disabled(!customColorIsAvailable)
             .padding(.trailing, 17)
         }
         .padding(.vertical, 6)
     }
 
     // MARK: - Einzelnes Preset
+
+    private var customColorIsAvailable: Bool {
+        guard let proAccess else { return true }
+        return PasukiAccentColorSelection.custom(hex: selection)
+            .isAvailable(for: proAccess)
+    }
 
     /// Baut einen runden Button fuer eine Preset-Farbe.
     private func presetButton(_ preset: ColorPreset) -> some View {

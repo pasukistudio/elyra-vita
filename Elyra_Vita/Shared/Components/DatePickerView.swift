@@ -1,53 +1,26 @@
 import SwiftUI
+import PasukiUI
 
+// MARK: - DatePickerView
+
+/// Elyra-Vita-Konfiguration des wiederverwendbaren PasukiUI-Dateipickers.
+///
+/// Die App entscheidet hier über Sprache und Sheet-Größe; die technische
+/// Picker-Struktur liegt zentral im UI-Paket und kann später von Elyra Budget
+/// wiederverwendet werden.
 struct DatePickerView: View {
-    @Environment(\.dismiss)
-    private var dismiss
+
+    // MARK: - Eingaben
 
     @Binding var selectedDate: Date
 
+    // MARK: - Ansicht
+
     var body: some View {
-        NavigationStack {
-            VStack {
-                DatePicker(
-                    "",
-                    selection: $selectedDate,
-                    displayedComponents: .date
-                )
-                .datePickerStyle(.graphical)
-                .onChange(of: selectedDate) {
-                    dismiss()
-                }
-            }
-            .toolbar {
-                if #available(iOS 26.0, *) {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Text("Datum auswählen")
-                            .font(.headline)
-                            .fixedSize(
-                                horizontal: true,
-                                vertical: false
-                            )
-                            .allowsHitTesting(false)
-                    }
-                    .sharedBackgroundVisibility(.hidden)
-                } else {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Text("Datum auswählen")
-                            .font(.headline)
-                            .fixedSize(
-                                horizontal: true,
-                                vertical: false
-                            )
-                            .allowsHitTesting(false)
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Fertig") {
-                        dismiss()
-                    }
-                }
-            }
-        }
+        PasukiDatePickerSheet(
+            selectedDate: $selectedDate,
+            title: "Datum auswählen",
+            confirmationTitle: "Fertig"
+        )
     }
 }

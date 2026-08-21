@@ -1,13 +1,9 @@
-//
-//  Elyra_VitaApp.swift
-//  Elyra_Vita
-//
-//  Created by Pascal Smigielski on 14.08.26.
-//
-
 import SwiftUI
 import SwiftData
 
+// MARK: - Elyra_VitaApp
+
+/// Einstiegspunkt der App und Besitzer des gemeinsamen SwiftData-Containers.
 @main
 struct Elyra_VitaApp: App {
 

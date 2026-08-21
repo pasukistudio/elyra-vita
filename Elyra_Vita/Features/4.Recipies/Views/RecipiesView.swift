@@ -1,5 +1,9 @@
 import SwiftUI
 import PasukiUI
+
+// MARK: - RecipiesView
+
+/// Platzhalter für die spätere Rezeptübersicht.
 struct RecipiesView: View {
     // MARK: - Ansicht
 

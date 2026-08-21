@@ -1,5 +1,73 @@
 import SwiftUI
+import PasukiUI
 
+// MARK: - SharedToolbar
+
+/// Aktionen, die im Plus-Menü der jeweiligen App-Seite angeboten werden.
+enum SharedToolbarAction: String, CaseIterable, Identifiable {
+
+    // MARK: - Aktionen
+
+    case meal
+    case water
+    case weight
+    case breakfast
+    case lunch
+    case dinner
+    case snack
+
+    // MARK: - Identifiable
+
+    var id: Self { self }
+
+    // MARK: - Seitenkonfiguration
+
+    /// Aktionen für die Übersicht.
+    static var overview: [Self] {
+        [.meal, .water, .weight]
+    }
+
+    /// Aktionen für den Ernährungsbereich.
+    static var nutrition: [Self] {
+        [.breakfast, .lunch, .dinner, .snack, .water]
+    }
+
+    // MARK: - Darstellung
+
+    var title: String {
+        switch self {
+        case .meal:
+            "Mahlzeit erfassen"
+        case .water:
+            "Wasser hinzufügen"
+        case .weight:
+            "Gewicht erfassen"
+        case .breakfast:
+            "Frühstück erfassen"
+        case .lunch:
+            "Mittagessen erfassen"
+        case .dinner:
+            "Abendessen erfassen"
+        case .snack:
+            "Snack erfassen"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .meal, .breakfast, .lunch, .dinner, .snack:
+            "fork.knife"
+        case .water:
+            "drop"
+        case .weight:
+            "scalemass"
+        }
+    }
+}
+
+// MARK: - SharedToolbar
+
+/// Gemeinsame Toolbar mit seitenabhängig konfigurierbarem Plus-Menü.
 struct SharedToolbar: ToolbarContent {
     // MARK: - Daten und Aktionen
 
@@ -7,9 +75,8 @@ struct SharedToolbar: ToolbarContent {
     let onPrevious: () -> Void
     let onSelectDate: () -> Void
     let onNext: () -> Void
-    let onAddWater: () -> Void
-    let onAddMeal: () -> Void
-    let onAddWeight: () -> Void
+    let menuActions: [SharedToolbarAction]
+    let onMenuAction: (SharedToolbarAction) -> Void
     let onSettings: () -> Void
 
     // MARK: - Toolbar-Inhalt
@@ -27,35 +94,33 @@ struct SharedToolbar: ToolbarContent {
         ToolbarItem(placement: .principal) {
             DateNavigationControl(
                 title: title,
+                labels: .init(
+                    previous: "Vorheriger Tag",
+                    selection: "Datum auswählen",
+                    next: "Nächster Tag"
+                ),
                 onPrevious: onPrevious,
-                onSelectDate: onSelectDate,
+                onSelect: onSelectDate,
                 onNext: onNext
             )
         }
 
-        // Rechte Seite: Menue fuer neue Eintraege.
+        // Rechte Seite: die für den aktiven Bereich konfigurierten Aktionen.
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
-                Button {
-                    onAddWater()
-                } label: {
-                    Label("Wasser hinzufügen", systemImage: "drop")
-                }
-
-                Button {
-                    onAddMeal()
-                } label: {
-                    Label("Mahlzeit erfassen", systemImage: "fork.knife")
-                }
-
-                Button {
-                    onAddWeight()
-                } label: {
-                    Label("Gewicht erfassen", systemImage: "scalemass")
+                ForEach(menuActions) { action in
+                    Button {
+                        onMenuAction(action)
+                    } label: {
+                        Label(action.title, systemImage: action.systemImage)
+                    }
+                    .accessibilityIdentifier("toolbar.action.\(action.rawValue)")
                 }
             } label: {
                 Image(systemName: "plus")
             }
+            .accessibilityLabel("Eintrag hinzufügen")
+            .accessibilityIdentifier("toolbar.addMenu")
         }
     }
 }

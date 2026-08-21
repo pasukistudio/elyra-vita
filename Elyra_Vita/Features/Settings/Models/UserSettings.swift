@@ -1,6 +1,10 @@
 import Foundation
 import SwiftData
+import PasukiUI
 
+// MARK: - UserSettings
+
+/// Persistierte, geräteübergreifend synchronisierte Benutzereinstellungen.
 @Model
 final class UserSettings {
 
@@ -16,15 +20,17 @@ final class UserSettings {
     var accentColorRawValue: String =
         AppAccentColor.blue.rawValue
 
+    /// Frei gewählte Akzentfarbe als Hexwert.
     var customAccentHex: String = "#007AFF"
 
-    // MARK: - Tagesziele
+    // MARK: - Vita-spezifische Tagesziele
 
+    /// Elyra-Vita-spezifisches Wasserziel in Millilitern.
     var waterGoalML: Int = 2_500
 
     // MARK: - Benachrichtigungen
 
-    // Hier kommen spaeter Benachrichtigungseinstellungen hinzu.
+    // Weitere Benachrichtigungseinstellungen werden später ergänzt.
 
     // MARK: - Zeitstempel
 
@@ -52,5 +58,12 @@ final class UserSettings {
         self.waterGoalML = min(max(waterGoalML, 500), 6_000)
         self.createdAt = Date()
         self.updatedAt = Date()
+    }
+
+    // MARK: - Änderungen
+
+    /// Markiert die Einstellungen als fachlich geändert.
+    func markUpdated() {
+        updatedAt = .now
     }
 }
