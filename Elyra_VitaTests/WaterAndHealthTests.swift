@@ -86,6 +86,52 @@ final class WaterAndHealthTests: XCTestCase {
         XCTAssertTrue(try context.fetch(FetchDescriptor<WaterEntry>()).isEmpty)
     }
 
+    // MARK: - Gewicht
+
+    /// Prüft Zeitstempel, Änderung und Löschung einer Gewichtsmessung.
+    func testWeightEntrySupportsUpdatesAndDeletion() throws {
+        let container = try makeInMemoryContainer()
+        let context = ModelContext(container)
+        let entry = WeightEntry(weightKilograms: 72.5)
+        let originalUpdatedAt = entry.updatedAt
+
+        context.insert(entry)
+        try context.save()
+        entry.update(weightKilograms: 72.2)
+        XCTAssertGreaterThanOrEqual(entry.updatedAt, originalUpdatedAt)
+
+        context.delete(entry)
+        try context.save()
+
+        XCTAssertTrue(try context.fetch(FetchDescriptor<WeightEntry>()).isEmpty)
+    }
+
+    /// Prüft die fachliche Regel: Ein Kalendertag besitzt genau eine Messung.
+    func testWeightEntryKeepsOneMeasurementPerCalendarDay() throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let selectedDay = try XCTUnwrap(
+            calendar.date(from: DateComponents(year: 2026, month: 8, day: 21))
+        )
+        let measurementDate = try XCTUnwrap(
+            calendar.date(byAdding: .hour, value: 8, to: selectedDay)
+        )
+        let container = try makeInMemoryContainer()
+        let context = ModelContext(container)
+        let entry = WeightEntry(date: measurementDate, weightKilograms: 72.5)
+
+        context.insert(entry)
+        try context.save()
+
+        // Eine zweite Eingabe für denselben Tag ersetzt den bestehenden Wert.
+        entry.update(weightKilograms: 72.1)
+        try context.save()
+
+        let entries = try context.fetch(FetchDescriptor<WeightEntry>())
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertEqual(entries.first?.weightKilograms, 72.1)
+        XCTAssertEqual(entries.first?.date, measurementDate)
+    }
+
     // MARK: - Wasserziel
 
     /// Prüft die unteren und oberen Grenzen des Wasserziels.
@@ -161,7 +207,7 @@ final class WaterAndHealthTests: XCTestCase {
 
     /// Erstellt für jeden Test einen isolierten SwiftData-Speicher.
     private func makeInMemoryContainer() throws -> ModelContainer {
-        let schema = Schema([WaterEntry.self])
+        let schema = Schema([WaterEntry.self, WeightEntry.self])
         let configuration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: true
