@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Elyra Vita nutzt die Kamera, um Lebensmittel-Barcodes zu erkennen.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Elyra Vita liest deine Gesundheitsdaten, um deine Tageswerte in der Übersicht anzuzeigen.</string>
 	<key>UIBackgroundModes</key>

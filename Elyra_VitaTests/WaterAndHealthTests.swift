@@ -1,5 +1,6 @@
 import SwiftData
 import XCTest
+import Foundation
 import PasukiUI
 @testable import Elyra_Vita
 
@@ -149,6 +150,83 @@ final class WaterAndHealthTests: XCTestCase {
 
         XCTAssertEqual(egg?.unitOptions.map(\.symbol), ["g", "Stück"])
         XCTAssertEqual(egg?.baseAmount(for: 1, unit: "piece"), 60)
+    }
+
+    /// Prüft, dass Open Food Facts alle verfügbaren Nährwerte in das lokale
+    /// Lebensmittelmodell übernimmt und die Barcode-Quelle erhalten bleibt.
+    func testOpenFoodFactsProductMapsNutritionValues() async throws {
+        MockOpenFoodFactsURLProtocol.responseData = Data("""
+        {
+          "status": "success",
+          "product": {
+            "code": "4000000000000",
+            "product_name": "Testprodukt",
+            "product_name_de": "Testprodukt DE",
+            "brands": "Testmarke",
+            "nutriments": {
+              "energy-kcal_100g": 250,
+              "proteins_100g": 8.5,
+              "carbohydrates_100g": 30.0,
+              "fat_100g": 9.0,
+              "sugars_100g": 12.0,
+              "fiber_100g": 4.0,
+              "saturated-fat_100g": 2.5,
+              "salt_100g": 0.8
+            }
+          }
+        }
+        """.utf8)
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockOpenFoodFactsURLProtocol.self]
+        let service = OpenFoodFactsService(session: URLSession(configuration: configuration))
+
+        let loadedFood = try await service.product(for: "4000000000000")
+        let food = try XCTUnwrap(loadedFood)
+
+        XCTAssertEqual(food.name, "Testprodukt DE")
+        XCTAssertEqual(food.brand, "Testmarke")
+        XCTAssertEqual(food.source, "openFoodFacts")
+        XCTAssertEqual(food.barcode, "4000000000000")
+        XCTAssertEqual(food.caloriesPer100, 250)
+        XCTAssertEqual(food.proteinPer100, 8.5)
+        XCTAssertEqual(food.carbohydratesPer100, 30)
+        XCTAssertEqual(food.fatPer100, 9)
+        XCTAssertEqual(food.sugarPer100, 12)
+        XCTAssertEqual(food.fiberPer100, 4)
+        XCTAssertEqual(food.saturatedFatPer100, 2.5)
+        XCTAssertEqual(food.saltPer100, 0.8)
+    }
+
+    /// Die aktuelle Open-Food-Facts-v3-Antwort verwendet einen Textstatus.
+    /// Ein bekanntes Produkt darf dadurch nicht als ungültig verworfen werden.
+    func testOpenFoodFactsV3ResponseWithTextStatusIsDecoded() async throws {
+        MockOpenFoodFactsURLProtocol.responseData = Data("""
+        {
+          "code": "3017620422003",
+          "status": "success",
+          "product": {
+            "code": "3017620422003",
+            "product_name": "Testprodukt",
+            "nutriments": {
+              "energy-kcal_100g": 539,
+              "fat_100g": 30.9
+            }
+          }
+        }
+        """.utf8)
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockOpenFoodFactsURLProtocol.self]
+        let service = OpenFoodFactsService(session: URLSession(configuration: configuration))
+
+        let loadedFood = try await service.product(for: "3017620422003")
+        let food = try XCTUnwrap(loadedFood)
+
+        XCTAssertEqual(food.name, "Testprodukt")
+        XCTAssertEqual(food.barcode, "3017620422003")
+        XCTAssertEqual(food.caloriesPer100, 539)
+        XCTAssertEqual(food.fatPer100, 30.9)
     }
 
     /// Prüft Tagesaggregation, Änderungszeitstempel und Löschen eines Eintrags.
@@ -314,4 +392,29 @@ final class WaterAndHealthTests: XCTestCase {
             configurations: [configuration]
         )
     }
+}
+
+// MARK: - Open Food Facts Test-Helfer
+
+/// Liefert deterministische API-Antworten, ohne im Testnetzwerk auf Open Food
+/// Facts angewiesen zu sein.
+private final class MockOpenFoodFactsURLProtocol: URLProtocol {
+    static var responseData = Data()
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        let response = HTTPURLResponse(
+            url: request.url!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: ["Content-Type": "application/json"]
+        )!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Self.responseData)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
 }

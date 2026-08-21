@@ -24,6 +24,10 @@ struct AddNutritionEntryView: View {
 
     @State private var searchText = ""
     @State private var selectedFood: NutritionFood?
+    @State private var remoteFoods: [NutritionFood] = []
+    @State private var isLoadingRemoteFoods = false
+    @State private var scannerPresented = false
+    @State private var errorMessage: String?
     @State private var amountText = "100"
     @State private var selectedUnit = "g"
     @State private var selectedMealType: NutritionMealType = .snack
@@ -39,8 +43,11 @@ struct AddNutritionEntryView: View {
     private var filteredFoods: [NutritionFood] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return NutritionFood.localCatalog }
-        return NutritionFood.localCatalog.filter {
+        let localFoods = NutritionFood.localCatalog.filter {
             $0.name.localizedCaseInsensitiveContains(query)
+        }
+        return localFoods + remoteFoods.filter { remote in
+            !localFoods.contains(where: { $0.id == remote.id })
         }
     }
 
@@ -100,12 +107,32 @@ struct AddNutritionEntryView: View {
         NavigationStack {
             Form {
                 Section("Lebensmittel") {
-                    TextField("Suchen", text: $searchText)
-                        .textInputAutocapitalization(.never)
+                    HStack {
+                        TextField("Suchen", text: $searchText)
+                            .textInputAutocapitalization(.never)
+
+                        Button {
+                            scannerPresented = true
+                        } label: {
+                            Image(systemName: "barcode.viewfinder")
+                                .font(.title3)
+                                .foregroundStyle(accentColor)
+                        }
+                        .accessibilityLabel("Barcode scannen")
+                    }
 
                     if let selectedFood {
                         selectedFoodRow(selectedFood)
                     } else {
+                        if isLoadingRemoteFoods {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                Text("Open Food Facts wird durchsucht …")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
                         ForEach(filteredFoods) { food in
                             Button {
                                 self.selectedFood = food
@@ -177,6 +204,9 @@ struct AddNutritionEntryView: View {
                 }
             }
             .onAppear(perform: prepareForEditing)
+            .task(id: searchText) {
+                await searchRemoteFoods()
+            }
             .onChange(of: amountText) { _, newValue in
                 guard entryToEdit == nil,
                       let selectedFood,
@@ -191,6 +221,27 @@ struct AddNutritionEntryView: View {
                 if entryToEdit == nil {
                     setNutritionFields(for: selectedFood, amount: amount, unit: newUnit)
                 }
+            }
+            .sheet(isPresented: $scannerPresented) {
+                BarcodeScannerView(
+                    onBarcode: { barcode in
+                        scannerPresented = false
+                        Task { await loadBarcode(barcode) }
+                    },
+                    onUnavailable: {
+                        scannerPresented = false
+                        errorMessage = "Der Barcode-Scanner ist auf diesem Gerät nicht verfügbar."
+                    }
+                )
+                .ignoresSafeArea()
+            }
+            .alert("Lebensmittel nicht gefunden", isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )) {
+                Button("OK", role: .cancel) { errorMessage = nil }
+            } message: {
+                Text(errorMessage ?? "")
             }
         }
     }
@@ -248,6 +299,48 @@ struct AddNutritionEntryView: View {
 
     private func parsedNumber(_ text: String) -> Double? {
         Double(text.replacingOccurrences(of: ",", with: "."))
+    }
+
+    // MARK: - Open Food Facts
+
+    /// Sucht erst nach einer kurzen Eingabepause, damit nicht jeder Tastendruck
+    /// eine Netzwerkanfrage auslöst. Der lokale Katalog bleibt sofort sichtbar.
+    private func searchRemoteFoods() async {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard query.count >= 2, selectedFood == nil else {
+            remoteFoods = []
+            return
+        }
+
+        try? await Task.sleep(for: .milliseconds(350))
+        guard !Task.isCancelled else { return }
+
+        isLoadingRemoteFoods = true
+        defer { isLoadingRemoteFoods = false }
+
+        do {
+            remoteFoods = try await OpenFoodFactsService().search(query)
+        } catch {
+            // Eine nicht erreichbare Datenbank darf die lokale Erfassung nicht blockieren.
+            remoteFoods = []
+        }
+    }
+
+    /// Lädt ein konkretes Produkt nach einem Barcode-Scan.
+    private func loadBarcode(_ barcode: String) async {
+        do {
+            guard let food = try await OpenFoodFactsService().product(for: barcode) else {
+                errorMessage = "Für diesen Barcode wurden keine verwertbaren Nährwerte gefunden."
+                return
+            }
+
+            selectedFood = food
+            amountText = "100"
+            selectedUnit = food.unit
+            setNutritionFields(for: food, amount: 100, unit: food.unit)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     private func editableNumber(_ value: Double) -> String {
@@ -320,6 +413,7 @@ struct AddNutritionEntryView: View {
             entryToEdit.brand = selectedFood.brand
             entryToEdit.unit = selectedUnit
             entryToEdit.externalFoodID = selectedFood.id
+            entryToEdit.source = selectedFood.source
             entryToEdit.update(
                 mealType: selectedMealType,
                 amount: amount,
@@ -351,6 +445,7 @@ struct AddNutritionEntryView: View {
                     saturatedFatGrams: saturatedFat,
                     saltGrams: salt,
                     date: selectedDate,
+                    source: selectedFood.source,
                     externalFoodID: selectedFood.id
                 )
             )
