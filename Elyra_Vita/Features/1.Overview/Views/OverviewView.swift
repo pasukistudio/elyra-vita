@@ -20,16 +20,19 @@ struct OverviewView: View {
     // MARK: - Eingaben
 
     let accentColor: Color
+    let calorieGoal: Int
     let waterGoal: Int
     let onOpenWater: () -> Void
 
     init(
         selectedDate: Date = .now,
+        calorieGoal: Int = 1_800,
         waterGoal: Int = 2_500,
         accentColor: Color,
         onOpenWater: @escaping () -> Void = {}
     ) {
         self.selectedDate = selectedDate
+        self.calorieGoal = calorieGoal
         self.waterGoal = waterGoal
         self.accentColor = accentColor
         self.onOpenWater = onOpenWater
@@ -50,6 +53,7 @@ struct OverviewView: View {
             /// Kalorien und Wasser werden kompakt in einer gemeinsamen Karte angezeigt.
             Section {
                 CalorieWaterSummaryCard(
+                    calorieGoal: calorieGoal,
                     consumedWater: consumedWater,
                     waterGoal: waterGoal,
                     accentColor: accentColor,

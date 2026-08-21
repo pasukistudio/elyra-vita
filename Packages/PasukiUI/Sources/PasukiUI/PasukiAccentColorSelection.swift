@@ -14,11 +14,8 @@ public enum PasukiProFeature: String, CaseIterable, Sendable {
 // MARK: - PasukiProAccess
 
 /// Liefert den Entitlement-Status einer gemeinsamen Pro-Funktion.
-///
-/// Die konkrete StoreKit-Anbindung bleibt außerhalb von PasukiUI. Elyra Vita
-/// und Elyra Budget können später denselben Vertrag mit ihrem gemeinsamen
-/// Subscription-Service bedienen.
-public protocol PasukiProAccess: Sendable {
+@MainActor
+public protocol PasukiProAccess {
     func hasAccess(to feature: PasukiProFeature) -> Bool
 }
 
@@ -45,6 +42,7 @@ public enum PasukiAccentColorSelection: Equatable, Sendable {
     }
 
     /// Prüft die Auswahl gegen den übergebenen Entitlement-Service.
+    @MainActor
     public func isAvailable(for proAccess: any PasukiProAccess) -> Bool {
         guard let requiredProFeature else { return true }
         return proAccess.hasAccess(to: requiredProFeature)

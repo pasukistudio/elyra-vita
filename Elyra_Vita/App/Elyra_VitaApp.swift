@@ -1,11 +1,39 @@
 import SwiftUI
 import SwiftData
+import PasukiUI
 
 // MARK: - Elyra_VitaApp
 
 /// Einstiegspunkt der App und Besitzer des gemeinsamen SwiftData-Containers.
 @main
 struct Elyra_VitaApp: App {
+
+    // MARK: - StoreKit / Pro
+
+    /// Produktzuordnung der App. Die ID muss in App Store Connect exakt
+    /// dieselbe Schreibweise verwenden.
+    private static let proConfiguration = PasukiProProductConfiguration(
+        featureByProductIdentifier: [
+            "de.pasukistudio.elyra-vita.pro": .customAccentColor
+        ]
+    )
+
+    @StateObject private var proAccess: PasukiStoreKitProService
+
+    // MARK: - Initialisierung
+
+    init() {
+        _proAccess = StateObject(
+            wrappedValue: PasukiStoreKitProService(
+                configuration: Self.proConfiguration
+            )
+        )
+        _syncMonitor = StateObject(
+            wrappedValue: PasukiCloudKitSyncMonitor(
+                isEnabled: !Self.cloudKitIsDisabled
+            )
+        )
+    }
 
     // MARK: - CloudKit
 
@@ -15,15 +43,17 @@ struct Elyra_VitaApp: App {
 
     /// Deaktiviert CloudKit ausschließlich für isolierte Xcode-Testläufe.
     /// Geräte-Builds verwenden weiterhin immer den privaten CloudKit-Container.
-    private static var cloudKitDatabase: ModelConfiguration.CloudKitDatabase {
+    private static var cloudKitIsDisabled: Bool {
         let environment = ProcessInfo.processInfo.environment
-        let isTestProcess = environment["XCTestConfigurationFilePath"] != nil ||
+        return environment["XCTestConfigurationFilePath"] != nil ||
             environment["XCInjectBundleInto"] != nil ||
             environment["ELYRA_VITA_DISABLE_CLOUDKIT"] == "YES" ||
             ProcessInfo.processInfo.arguments.contains("--disable-cloudkit") ||
             environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+    }
 
-        if isTestProcess {
+    private static var cloudKitDatabase: ModelConfiguration.CloudKitDatabase {
+        if cloudKitIsDisabled {
             return .none
         }
 
@@ -58,11 +88,20 @@ struct Elyra_VitaApp: App {
         }
     }()
 
+    // MARK: - CloudKit-Status
+
+    @StateObject private var syncMonitor: PasukiCloudKitSyncMonitor
+
     // MARK: - App-Szene
 
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(proAccess)
+                .environmentObject(syncMonitor)
+                .task {
+                    await proAccess.refresh()
+                }
         }
         // Macht den Container fuer alle untergeordneten Views verfuegbar.
         .modelContainer(sharedModelContainer)

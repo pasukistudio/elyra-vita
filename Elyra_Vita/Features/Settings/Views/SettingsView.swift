@@ -1,5 +1,6 @@
 import SwiftData
 import OSLog
+import StoreKit
 import SwiftUI
 import UniformTypeIdentifiers
 import PasukiUI
@@ -11,6 +12,8 @@ struct SettingsView: View {
     // MARK: - Abhängigkeiten und Zustand
 
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var proAccess: PasukiStoreKitProService
+    @EnvironmentObject private var syncMonitor: PasukiCloudKitSyncMonitor
 
     private let configuration = PasukiSettingsConfiguration(
         appName: "Elyra Vita",
@@ -24,6 +27,8 @@ struct SettingsView: View {
 
     @State private var draftName = ""
     @State private var saveErrorMessage: String?
+    @State private var storeErrorMessage: String?
+    @State private var isProcessingStoreAction = false
 
     private let logger = Logger(
         subsystem: "de.pasukistudio.elyra-vita",
@@ -45,6 +50,8 @@ struct SettingsView: View {
             dailyGoalsSection
             appearanceSection
             accentColorSection
+            syncSection
+            proSection
             PasukiSupportSection(supportURL: url(configuration.supportURL))
             PasukiLegalSection(
                 privacyURL: url(configuration.privacyURL),
@@ -90,14 +97,61 @@ struct SettingsView: View {
         } message: {
             Text(saveErrorMessage ?? "Unbekannter Fehler")
         }
+        .alert(
+            "Pro konnte nicht aktiviert werden",
+            isPresented: Binding(
+                get: { storeErrorMessage != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        storeErrorMessage = nil
+                    }
+                }
+            )
+        ) {
+            Button("OK") {
+                storeErrorMessage = nil
+            }
+        } message: {
+            Text(storeErrorMessage ?? "Unbekannter StoreKit-Fehler")
+        }
     }
 
     // MARK: - Tagesziele Sektion
+
+    // MARK: - Synchronisierung
+
+    private var syncSection: some View {
+        Section("Synchronisierung") {
+            PasukiCloudKitSyncStatusView(status: syncMonitor.status)
+        }
+    }
 
     @ViewBuilder
     private var dailyGoalsSection: some View {
         Section("Tagesziele") {
             if let profile = profiles.first {
+                Stepper(
+                    value: Binding(
+                        get: { profile.calorieGoal },
+                        set: { value in
+                            profile.calorieGoal = value
+                            profile.markUpdated()
+                            saveSettings()
+                        }
+                    ),
+                    in: 1_000...6_000,
+                    step: 100
+                ) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Kalorienziel")
+                            .font(.body.weight(.medium))
+
+                        Text("\(profile.calorieGoal.formatted(.number.locale(Locale(identifier: "de_DE")))) kcal pro Tag")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 Stepper(
                     value: Binding(
                         get: { profile.waterGoalML },
@@ -186,6 +240,47 @@ struct SettingsView: View {
 
     // MARK: - Akzentfarbe Sektion
 
+    // MARK: - Pro Sektion
+
+    @ViewBuilder
+    private var proSection: some View {
+        Section("Elyra Vita Pro") {
+            if proAccess.hasAccess(to: .customAccentColor) {
+                Label("Pro ist aktiviert", systemImage: "checkmark.seal.fill")
+                    .foregroundStyle(.green)
+            } else if let product = proAccess.products.first {
+                Button {
+                    Task {
+                        await purchase(product)
+                    }
+                } label: {
+                    HStack {
+                        Label("Pro freischalten", systemImage: "star.fill")
+                        Spacer()
+                        Text(product.displayPrice)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(isProcessingStoreAction)
+            } else if proAccess.state == .loading {
+                HStack {
+                    ProgressView()
+                    Text("StoreKit wird geladen …")
+                }
+            } else {
+                Text("Pro ist derzeit nicht verfügbar.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Button("Käufe wiederherstellen") {
+                Task {
+                    await restorePurchases()
+                }
+            }
+            .disabled(isProcessingStoreAction)
+        }
+    }
+
     @ViewBuilder
     private var accentColorSection: some View {
         Section {
@@ -220,8 +315,33 @@ struct SettingsView: View {
                 profile.accentColorRawValue = AppAccentColor.custom.rawValue
                 profile.markUpdated()
                 saveSettings()
-            }
+            },
+            proAccess: proAccess
         )
+    }
+
+    // MARK: - StoreKit-Aktionen
+
+    private func purchase(_ product: Product) async {
+        isProcessingStoreAction = true
+        defer { isProcessingStoreAction = false }
+
+        do {
+            _ = try await proAccess.purchase(product)
+        } catch {
+            storeErrorMessage = error.localizedDescription
+        }
+    }
+
+    private func restorePurchases() async {
+        isProcessingStoreAction = true
+        defer { isProcessingStoreAction = false }
+
+        do {
+            try await proAccess.restorePurchases()
+        } catch {
+            storeErrorMessage = error.localizedDescription
+        }
     }
 
 

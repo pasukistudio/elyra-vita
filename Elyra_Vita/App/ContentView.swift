@@ -131,6 +131,7 @@ struct ContentView: View {
     private var overview: some View {
         OverviewView(
             selectedDate: selectedDate,
+            calorieGoal: userSettings.first?.calorieGoal ?? 1_800,
             waterGoal: userSettings.first?.waterGoalML ?? 2_500,
             accentColor: selectedAccentColor,
             onOpenWater: {
@@ -300,6 +301,13 @@ struct ContentView: View {
 }
 
 #Preview {
+    let proAccess = PasukiStoreKitProService(
+        configuration: PasukiProProductConfiguration(
+            featureByProductIdentifier: [:]
+        )
+    )
+    let syncMonitor = PasukiCloudKitSyncMonitor(isEnabled: false)
+
     ContentView()
         .modelContainer(
             for: [
@@ -308,4 +316,6 @@ struct ContentView: View {
             ],
             inMemory: true
         )
+        .environmentObject(proAccess)
+        .environmentObject(syncMonitor)
 }
