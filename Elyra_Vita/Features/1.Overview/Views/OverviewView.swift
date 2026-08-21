@@ -22,20 +22,23 @@ struct OverviewView: View {
     let accentColor: Color
     let calorieGoal: Int
     let waterGoal: Int
-    let onOpenWater: () -> Void
+    let onOpenWaterTrend: () -> Void
+    let onOpenHealthMetric: (HealthTrendMetric) -> Void
 
     init(
         selectedDate: Date = .now,
         calorieGoal: Int = 1_800,
         waterGoal: Int = 2_500,
         accentColor: Color,
-        onOpenWater: @escaping () -> Void = {}
+        onOpenWaterTrend: @escaping () -> Void = {},
+        onOpenHealthMetric: @escaping (HealthTrendMetric) -> Void = { _ in }
     ) {
         self.selectedDate = selectedDate
         self.calorieGoal = calorieGoal
         self.waterGoal = waterGoal
         self.accentColor = accentColor
-        self.onOpenWater = onOpenWater
+        self.onOpenWaterTrend = onOpenWaterTrend
+        self.onOpenHealthMetric = onOpenHealthMetric
     }
 
     // MARK: - Berechnete Werte
@@ -57,7 +60,7 @@ struct OverviewView: View {
                     consumedWater: consumedWater,
                     waterGoal: waterGoal,
                     accentColor: accentColor,
-                    onWaterTap: onOpenWater
+                    onWaterTrendTap: onOpenWaterTrend
                 )
                 .listRowInsets(EdgeInsets())
             } header: {
@@ -70,7 +73,8 @@ struct OverviewView: View {
             Section {
                 DailyMetricsSummaryCard(
                     accentColor: accentColor,
-                    healthMetrics: healthMetrics
+                    healthMetrics: healthMetrics,
+                    onMetricTap: onOpenHealthMetric
                 )
                 .listRowInsets(EdgeInsets())
             } header: {

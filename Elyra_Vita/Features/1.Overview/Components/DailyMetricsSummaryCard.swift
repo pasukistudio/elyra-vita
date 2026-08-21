@@ -15,12 +15,17 @@ struct DailyMetricsSummaryCard: View {
     /// Die für den ausgewählten Tag aus Apple Health gelesenen Werte.
     let healthMetrics: HealthMetrics?
 
+    /// Öffnet die historische Detailansicht des ausgewählten Werts.
+    let onMetricTap: (HealthTrendMetric) -> Void
+
     init(
         accentColor: Color,
-        healthMetrics: HealthMetrics? = nil
+        healthMetrics: HealthMetrics? = nil,
+        onMetricTap: @escaping (HealthTrendMetric) -> Void = { _ in }
     ) {
         self.accentColor = accentColor
         self.healthMetrics = healthMetrics
+        self.onMetricTap = onMetricTap
     }
 
     // MARK: - Layout
@@ -34,6 +39,7 @@ struct DailyMetricsSummaryCard: View {
     var body: some View {
         VStack(spacing: 0) {
             metricRow(
+                metric: .steps,
                 title: "Schritte",
                 value: integerText(healthMetrics?.steps, unit: "Schritte"),
                 systemImage: "shoeprints.fill",
@@ -43,6 +49,7 @@ struct DailyMetricsSummaryCard: View {
             metricDivider
 
             metricRow(
+                metric: .walkingRunningDistance,
                 title: "Geh-/Laufdistanz",
                 value: distanceText(healthMetrics?.walkingRunningDistanceKilometers),
                 systemImage: "mappin.and.ellipse",
@@ -52,6 +59,7 @@ struct DailyMetricsSummaryCard: View {
             metricDivider
 
             metricRow(
+                metric: .activeEnergy,
                 title: "Aktiv verbrannt",
                 value: integerText(healthMetrics?.activeEnergyKilocalories, unit: "kcal"),
                 systemImage: "figure.run",
@@ -61,6 +69,7 @@ struct DailyMetricsSummaryCard: View {
             metricDivider
 
             metricRow(
+                metric: .basalEnergy,
                 title: "Ruheenergie",
                 value: integerText(healthMetrics?.basalEnergyKilocalories, unit: "kcal"),
                 systemImage: "figure.mind.and.body",
@@ -70,6 +79,7 @@ struct DailyMetricsSummaryCard: View {
             metricDivider
 
             metricRow(
+                metric: .totalEnergy,
                 title: "Gesamtverbrauch",
                 value: integerText(healthMetrics?.totalEnergyKilocalories, unit: "kcal"),
                 systemImage: "bolt.fill",
@@ -79,6 +89,7 @@ struct DailyMetricsSummaryCard: View {
             metricDivider
 
             metricRow(
+                metric: .weight,
                 title: "Gewicht",
                 value: weightText(healthMetrics?.weightKilograms),
                 systemImage: "scalemass",
@@ -103,31 +114,43 @@ struct DailyMetricsSummaryCard: View {
 
     /// Baut eine einzelne Zeile mit Icon, Bezeichnung und Wert auf.
     private func metricRow(
+        metric: HealthTrendMetric,
         title: String,
         value: String,
         systemImage: String,
         color: Color
     ) -> some View {
-        HStack(spacing: 14) {
-            Image(systemName: systemImage)
-                .font(.system(size: 22, weight: .regular))
-                .foregroundStyle(color)
-                .frame(width: 28)
+        Button {
+            onMetricTap(metric)
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 22, weight: .regular))
+                    .foregroundStyle(color)
+                    .frame(width: 28)
 
-            Text(title)
-                .font(.body)
-                .lineLimit(1)
+                Text(title)
+                    .font(.body)
+                    .lineLimit(1)
 
-            Spacer(minLength: 10)
+                Spacer(minLength: 10)
 
-            Text(value)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.trailing)
-                .lineLimit(2)
+                Text(value)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.trailing)
+                    .lineLimit(2)
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.vertical, 10)
+            .frame(height: Self.metricRowHeight)
+            .contentShape(Rectangle())
         }
-        .padding(.vertical, 10)
-        .frame(height: Self.metricRowHeight)
+        .buttonStyle(.plain)
+        .accessibilityHint("Trend anzeigen")
     }
 
     /// Trennt die Gesundheitszeilen, ohne die Icon-Spalte zu durchschneiden.
@@ -142,6 +165,7 @@ struct DailyMetricsSummaryCard: View {
     private var macroRow: some View {
         HStack(spacing: 0) {
             macroMetric(
+                metric: .protein,
                 title: "Eiweiß",
                 value: macroText(healthMetrics?.proteinGrams),
                 percent: nil,
@@ -151,6 +175,7 @@ struct DailyMetricsSummaryCard: View {
             Divider()
 
             macroMetric(
+                metric: .carbohydrates,
                 title: "Kohlenhydrate",
                 value: macroText(healthMetrics?.carbohydratesGrams),
                 percent: nil,
@@ -160,6 +185,7 @@ struct DailyMetricsSummaryCard: View {
             Divider()
 
             macroMetric(
+                metric: .fat,
                 title: "Fett",
                 value: macroText(healthMetrics?.fatGrams),
                 percent: nil,
@@ -172,33 +198,41 @@ struct DailyMetricsSummaryCard: View {
 
     /// Baut eine einzelne Makronährstoff-Spalte auf.
     private func macroMetric(
+        metric: HealthTrendMetric,
         title: String,
         value: String,
         percent: String?,
         color: Color
     ) -> some View {
-        VStack(spacing: 4) {
-            Text(title)
-                .font(.footnote)
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+        Button {
+            onMetricTap(metric)
+        } label: {
+            VStack(spacing: 4) {
+                Text(title)
+                    .font(.footnote)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
 
-            HStack(spacing: 5) {
-                VStack(spacing: 1) {
-                    Text(value)
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(color)
+                HStack(spacing: 5) {
+                    VStack(spacing: 1) {
+                        Text(value)
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(color)
 
-                    if let percent {
-                        Text(percent)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                        if let percent {
+                            Text(percent)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
         }
-        .frame(maxWidth: .infinity)
+        .buttonStyle(.plain)
+        .accessibilityHint("Trend anzeigen")
     }
 
     // MARK: - Formatierung

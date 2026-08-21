@@ -30,8 +30,8 @@ struct CalorieWaterSummaryCard: View {
     /// Die in den Einstellungen ausgewählte Akzentfarbe.
     let accentColor: Color
 
-    /// Öffnet das Wasser-Sheet beim Antippen der Wasser-Spalte.
-    let onWaterTap: () -> Void
+    /// Öffnet den Wasser-Trend mit Diagramm und Logbuch.
+    let onWaterTrendTap: () -> Void
 
     // MARK: - Initialisierung
 
@@ -43,7 +43,7 @@ struct CalorieWaterSummaryCard: View {
         hasCalorieGoal: Bool = true,
         hasWaterGoal: Bool = true,
         accentColor: Color,
-        onWaterTap: @escaping () -> Void = {}
+        onWaterTrendTap: @escaping () -> Void = {}
     ) {
         self.consumedCalories = max(0, consumedCalories)
         self.calorieGoal = max(0, calorieGoal)
@@ -52,7 +52,7 @@ struct CalorieWaterSummaryCard: View {
         self.hasCalorieGoal = hasCalorieGoal
         self.hasWaterGoal = hasWaterGoal
         self.accentColor = accentColor
-        self.onWaterTap = onWaterTap
+        self.onWaterTrendTap = onWaterTrendTap
     }
 
     // MARK: - Berechnete Werte
@@ -100,7 +100,7 @@ struct CalorieWaterSummaryCard: View {
 
     /// Rechte Spalte für das Wasserziel.
     private var waterColumn: some View {
-        Button(action: onWaterTap) {
+        Button(action: onWaterTrendTap) {
             goalColumn(
                 title: "Wasser",
                 icon: "drop.fill",
