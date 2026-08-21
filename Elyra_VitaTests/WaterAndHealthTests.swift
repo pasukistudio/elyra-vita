@@ -152,6 +152,40 @@ final class WaterAndHealthTests: XCTestCase {
         XCTAssertEqual(egg?.baseAmount(for: 1, unit: "piece"), 60)
     }
 
+    /// Prüft, dass ein eigenes Lebensmittel alle Nährwerte in den
+    /// gemeinsamen Erfassungsdatensatz überführt.
+    func testCustomFoodConvertsAllNutritionValues() {
+        let food = CustomFood(
+            name: "Eigenes Müsli",
+            brand: "Hausmarke",
+            unit: "g",
+            pieceWeight: 45,
+            caloriesPer100: 410,
+            proteinPer100: 12,
+            carbohydratesPer100: 55,
+            fatPer100: 14,
+            sugarPer100: 8,
+            fiberPer100: 7,
+            saturatedFatPer100: 3,
+            saltPer100: 0.2
+        )
+
+        let nutritionFood = food.nutritionFood
+
+        XCTAssertEqual(nutritionFood.name, "Eigenes Müsli")
+        XCTAssertEqual(nutritionFood.brand, "Hausmarke")
+        XCTAssertEqual(nutritionFood.source, "custom")
+        XCTAssertEqual(nutritionFood.pieceWeight, 45)
+        XCTAssertEqual(nutritionFood.caloriesPer100, 410)
+        XCTAssertEqual(nutritionFood.proteinPer100, 12)
+        XCTAssertEqual(nutritionFood.carbohydratesPer100, 55)
+        XCTAssertEqual(nutritionFood.fatPer100, 14)
+        XCTAssertEqual(nutritionFood.sugarPer100, 8)
+        XCTAssertEqual(nutritionFood.fiberPer100, 7)
+        XCTAssertEqual(nutritionFood.saturatedFatPer100, 3)
+        XCTAssertEqual(nutritionFood.saltPer100, 0.2)
+    }
+
     /// Prüft, dass Open Food Facts alle verfügbaren Nährwerte in das lokale
     /// Lebensmittelmodell übernimmt und die Barcode-Quelle erhalten bleibt.
     func testOpenFoodFactsProductMapsNutritionValues() async throws {
@@ -381,7 +415,7 @@ final class WaterAndHealthTests: XCTestCase {
 
     /// Erstellt für jeden Test einen isolierten SwiftData-Speicher.
     private func makeInMemoryContainer() throws -> ModelContainer {
-        let schema = Schema([WaterEntry.self, WeightEntry.self, NutritionEntry.self])
+        let schema = Schema([WaterEntry.self, WeightEntry.self, NutritionEntry.self, CustomFood.self])
         let configuration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: true

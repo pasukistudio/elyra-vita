@@ -181,7 +181,7 @@ struct OverviewView: View {
 #Preview("OverviewView") {
 OverviewView(accentColor: .blue)
         .modelContainer(
-            for: [WaterEntry.self, NutritionEntry.self],
+            for: [WaterEntry.self, NutritionEntry.self, CustomFood.self],
             inMemory: true
         )
 }

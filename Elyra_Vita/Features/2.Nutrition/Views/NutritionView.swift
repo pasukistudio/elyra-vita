@@ -230,5 +230,5 @@ struct NutritionView: View {
 
 #Preview {
     NutritionView(accentColor: .orange)
-        .modelContainer(for: [NutritionEntry.self], inMemory: true)
+        .modelContainer(for: [NutritionEntry.self, CustomFood.self], inMemory: true)
 }

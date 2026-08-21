@@ -70,7 +70,8 @@ struct Elyra_VitaApp: App {
             UserSettings.self,
             WaterEntry.self,
             WeightEntry.self,
-            NutritionEntry.self
+            NutritionEntry.self,
+            CustomFood.self
         ])
 
         // Die Daten bleiben auch nach dem Neustart der App erhalten.
