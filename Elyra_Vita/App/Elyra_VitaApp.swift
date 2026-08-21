@@ -69,7 +69,8 @@ struct Elyra_VitaApp: App {
         let schema = Schema([
             UserSettings.self,
             WaterEntry.self,
-            WeightEntry.self
+            WeightEntry.self,
+            NutritionEntry.self
         ])
 
         // Die Daten bleiben auch nach dem Neustart der App erhalten.

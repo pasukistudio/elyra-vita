@@ -15,16 +15,28 @@ struct DailyMetricsSummaryCard: View {
     /// Die für den ausgewählten Tag aus Apple Health gelesenen Werte.
     let healthMetrics: HealthMetrics?
 
+    /// Die aus den gespeicherten Ernährungseinträgen summierten Makros.
+    /// Diese Werte sind unabhängig von Apple-Health-Ernährungsdaten.
+    let nutritionProteinGrams: Double?
+    let nutritionCarbohydratesGrams: Double?
+    let nutritionFatGrams: Double?
+
     /// Öffnet die historische Detailansicht des ausgewählten Werts.
     let onMetricTap: (HealthTrendMetric) -> Void
 
     init(
         accentColor: Color,
         healthMetrics: HealthMetrics? = nil,
+        nutritionProteinGrams: Double? = nil,
+        nutritionCarbohydratesGrams: Double? = nil,
+        nutritionFatGrams: Double? = nil,
         onMetricTap: @escaping (HealthTrendMetric) -> Void = { _ in }
     ) {
         self.accentColor = accentColor
         self.healthMetrics = healthMetrics
+        self.nutritionProteinGrams = nutritionProteinGrams
+        self.nutritionCarbohydratesGrams = nutritionCarbohydratesGrams
+        self.nutritionFatGrams = nutritionFatGrams
         self.onMetricTap = onMetricTap
     }
 
@@ -167,7 +179,7 @@ struct DailyMetricsSummaryCard: View {
             macroMetric(
                 metric: .protein,
                 title: "Eiweiß",
-                value: macroText(healthMetrics?.proteinGrams),
+                value: macroText(nutritionProteinGrams),
                 percent: nil,
                 color: .blue
             )
@@ -177,7 +189,7 @@ struct DailyMetricsSummaryCard: View {
             macroMetric(
                 metric: .carbohydrates,
                 title: "Kohlenhydrate",
-                value: macroText(healthMetrics?.carbohydratesGrams),
+                value: macroText(nutritionCarbohydratesGrams),
                 percent: nil,
                 color: .teal
             )
@@ -187,7 +199,7 @@ struct DailyMetricsSummaryCard: View {
             macroMetric(
                 metric: .fat,
                 title: "Fett",
-                value: macroText(healthMetrics?.fatGrams),
+                value: macroText(nutritionFatGrams),
                 percent: nil,
                 color: .purple
             )

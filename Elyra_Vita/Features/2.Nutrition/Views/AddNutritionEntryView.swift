@@ -1,0 +1,367 @@
+import SwiftUI
+import SwiftData
+import PasukiUI
+import Foundation
+
+// MARK: - AddNutritionEntryView
+
+/// Erfasst ein lokales Lebensmittel mit frei anpassbarer Menge.
+struct AddNutritionEntryView: View {
+
+    // MARK: - Abhängigkeiten
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
+    // MARK: - Eingaben
+
+    let selectedDate: Date
+    let accentColor: Color
+    let entryToEdit: NutritionEntry?
+    let initialMealType: NutritionMealType
+
+    // MARK: - Zustand
+
+    @State private var searchText = ""
+    @State private var selectedFood: NutritionFood?
+    @State private var amountText = "100"
+    @State private var selectedUnit = "g"
+    @State private var selectedMealType: NutritionMealType = .snack
+    @State private var caloriesText = ""
+    @State private var proteinText = ""
+    @State private var carbohydratesText = ""
+    @State private var fatText = ""
+    @State private var sugarText = ""
+    @State private var fiberText = ""
+    @State private var saturatedFatText = ""
+    @State private var saltText = ""
+
+    private var filteredFoods: [NutritionFood] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return NutritionFood.localCatalog }
+        return NutritionFood.localCatalog.filter {
+            $0.name.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    private var parsedAmount: Double? {
+        parsedNumber(amountText)
+    }
+
+    // MARK: - Mengenanzeige
+
+    /// Zeigt bei alternativen Einheiten die zugrunde liegende Gramm-/Milliliter-Menge.
+    /// So bleibt nachvollziehbar, welcher Datenbankwert für ein Stück verwendet wird.
+    private var baseAmountDescription: String? {
+        guard let selectedFood,
+              selectedUnit != selectedFood.unit,
+              let amount = parsedAmount,
+              amount > 0 else { return nil }
+
+        let baseAmount = selectedFood.baseAmount(for: amount, unit: selectedUnit)
+        let formattedAmount = baseAmount.rounded() == baseAmount
+            ? String(Int(baseAmount))
+            : editableNumber(baseAmount)
+
+        return "entspricht ca. \(formattedAmount) \(selectedFood.unit)"
+    }
+
+    private var nutritionValues: [Double]? {
+        let values = [
+            parsedNumber(caloriesText),
+            parsedNumber(proteinText),
+            parsedNumber(carbohydratesText),
+            parsedNumber(fatText),
+            parsedNumber(sugarText),
+            parsedNumber(fiberText),
+            parsedNumber(saturatedFatText),
+            parsedNumber(saltText)
+        ]
+
+        guard values.allSatisfy({ $0 != nil && $0! >= 0 }) else { return nil }
+        return values.compactMap { $0 }
+    }
+
+    init(
+        selectedDate: Date,
+        accentColor: Color,
+        entryToEdit: NutritionEntry? = nil,
+        initialMealType: NutritionMealType = .snack
+    ) {
+        self.selectedDate = selectedDate
+        self.accentColor = accentColor
+        self.entryToEdit = entryToEdit
+        self.initialMealType = initialMealType
+    }
+
+    // MARK: - Ansicht
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Lebensmittel") {
+                    TextField("Suchen", text: $searchText)
+                        .textInputAutocapitalization(.never)
+
+                    if let selectedFood {
+                        selectedFoodRow(selectedFood)
+                    } else {
+                        ForEach(filteredFoods) { food in
+                            Button {
+                                self.selectedFood = food
+                                amountText = "100"
+                                selectedUnit = food.unit
+                                setNutritionFields(for: food, amount: 100, unit: food.unit)
+                            } label: {
+                                foodRow(food)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+
+                if let selectedFood {
+                    Section("Menge") {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                TextField("Menge", text: $amountText)
+                                    .keyboardType(.decimalPad)
+
+                                Picker("Einheit", selection: $selectedUnit) {
+                                    ForEach(selectedFood.unitOptions) { option in
+                                        Text(option.symbol)
+                                            .tag(option.id)
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .labelsHidden()
+                            }
+
+                            if let baseAmountDescription {
+                                Text(baseAmountDescription)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        Picker("Mahlzeit", selection: $selectedMealType) {
+                            ForEach(NutritionMealType.allCases) { mealType in
+                                Label(mealType.title, systemImage: mealType.icon)
+                                .tag(mealType)
+                            }
+                        }
+                    }
+
+                    Section("Nährwerte für diese Menge") {
+                        nutrientField("Kalorien", text: $caloriesText, unit: "kcal")
+                        nutrientField("Eiweiß", text: $proteinText, unit: "g")
+                        nutrientField("Kohlenhydrate", text: $carbohydratesText, unit: "g")
+                        nutrientField("Fett", text: $fatText, unit: "g")
+                        nutrientField("Zucker", text: $sugarText, unit: "g")
+                        nutrientField("Ballaststoffe", text: $fiberText, unit: "g")
+                        nutrientField("Gesättigte Fettsäuren", text: $saturatedFatText, unit: "g")
+                        nutrientField("Salz", text: $saltText, unit: "g")
+                    }
+                }
+            }
+            .navigationTitle(entryToEdit == nil ? "Mahlzeit erfassen" : "Mahlzeit bearbeiten")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Abbrechen") { dismiss() }
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Speichern") { save() }
+                        .disabled(selectedFood == nil || (parsedAmount ?? 0) <= 0 || nutritionValues == nil)
+                }
+            }
+            .onAppear(perform: prepareForEditing)
+            .onChange(of: amountText) { _, newValue in
+                guard entryToEdit == nil,
+                      let selectedFood,
+                      let amount = parsedNumber(newValue),
+                      amount > 0 else { return }
+                setNutritionFields(for: selectedFood, amount: amount, unit: selectedUnit)
+            }
+            .onChange(of: selectedUnit) { _, newUnit in
+                guard let selectedFood else { return }
+                amountText = newUnit == selectedFood.unit ? "100" : "1"
+                guard let amount = parsedNumber(amountText) else { return }
+                if entryToEdit == nil {
+                    setNutritionFields(for: selectedFood, amount: amount, unit: newUnit)
+                }
+            }
+        }
+    }
+
+    // MARK: - Lebensmittelzeilen
+
+    private func foodRow(_ food: NutritionFood) -> some View {
+        HStack {
+            Image(systemName: "fork.knife")
+                .foregroundStyle(accentColor)
+                .frame(width: 28)
+
+            Text(food.name)
+                .foregroundStyle(.primary)
+
+            Spacer()
+
+            Text(food.caloriesPer100, format: .number.precision(.fractionLength(0)))
+                .foregroundStyle(.secondary)
+            Text("kcal/100")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func selectedFoodRow(_ food: NutritionFood) -> some View {
+        HStack {
+            foodRow(food)
+            Button("Ändern") {
+                selectedFood = nil
+            }
+            .font(.caption.weight(.semibold))
+        }
+    }
+
+    private func nutrientField(_ title: String, text: Binding<String>, unit: String) -> some View {
+        HStack {
+            Text(title)
+                .foregroundStyle(.primary)
+
+            Spacer()
+
+            TextField("", text: text)
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.trailing)
+                .frame(minWidth: 72)
+                .accessibilityLabel(title)
+
+            Text(unit)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: - Speichern
+
+    private func parsedNumber(_ text: String) -> Double? {
+        Double(text.replacingOccurrences(of: ",", with: "."))
+    }
+
+    private func editableNumber(_ value: Double) -> String {
+        String(format: "%.2f", value).replacingOccurrences(of: ".", with: ",")
+    }
+
+    /// Überträgt die Datenbankwerte auf die aktuell eingegebene Menge.
+    private func setNutritionFields(for food: NutritionFood, amount: Double, unit: String) {
+        let factor = food.baseAmount(for: amount, unit: unit) / 100
+        caloriesText = editableNumber(food.caloriesPer100 * factor)
+        proteinText = editableNumber(food.proteinPer100 * factor)
+        carbohydratesText = editableNumber(food.carbohydratesPer100 * factor)
+        fatText = editableNumber(food.fatPer100 * factor)
+        sugarText = editableNumber(food.sugarPer100 * factor)
+        fiberText = editableNumber(food.fiberPer100 * factor)
+        saturatedFatText = editableNumber(food.saturatedFatPer100 * factor)
+        saltText = editableNumber(food.saltPer100 * factor)
+    }
+
+    /// Lädt beim Bearbeiten die bereits gespeicherten, ggf. korrigierten Werte.
+    private func setNutritionFields(from entry: NutritionEntry) {
+        caloriesText = editableNumber(entry.calories)
+        proteinText = editableNumber(entry.proteinGrams)
+        carbohydratesText = editableNumber(entry.carbohydratesGrams)
+        fatText = editableNumber(entry.fatGrams)
+        sugarText = editableNumber(entry.sugarGrams)
+        fiberText = editableNumber(entry.fiberGrams)
+        saturatedFatText = editableNumber(entry.saturatedFatGrams)
+        saltText = editableNumber(entry.saltGrams)
+    }
+
+    private func prepareForEditing() {
+        if let entryToEdit {
+            selectedMealType = entryToEdit.mealType
+            amountText = editableNumber(entryToEdit.amount)
+            selectedFood = NutritionFood.localCatalog.first {
+                $0.id == entryToEdit.externalFoodID
+            } ?? NutritionFood.localCatalog.first {
+                $0.name == entryToEdit.foodName
+            }
+            selectedUnit = entryToEdit.unit
+            if let selectedFood,
+               !selectedFood.unitOptions.contains(where: { $0.id == selectedUnit }) {
+                selectedUnit = selectedFood.unit
+            }
+            setNutritionFields(from: entryToEdit)
+        } else {
+            selectedMealType = initialMealType
+        }
+    }
+
+    private func save() {
+        guard let selectedFood,
+              let amount = parsedAmount,
+              amount > 0,
+              let values = nutritionValues,
+              values.count == 8 else { return }
+
+        let calories = values[0]
+        let protein = values[1]
+        let carbohydrates = values[2]
+        let fat = values[3]
+        let sugar = values[4]
+        let fiber = values[5]
+        let saturatedFat = values[6]
+        let salt = values[7]
+
+        if let entryToEdit {
+            entryToEdit.foodName = selectedFood.name
+            entryToEdit.brand = selectedFood.brand
+            entryToEdit.unit = selectedUnit
+            entryToEdit.externalFoodID = selectedFood.id
+            entryToEdit.update(
+                mealType: selectedMealType,
+                amount: amount,
+                date: entryToEdit.date
+            )
+            entryToEdit.calories = calories
+            entryToEdit.proteinGrams = protein
+            entryToEdit.carbohydratesGrams = carbohydrates
+            entryToEdit.fatGrams = fat
+            entryToEdit.sugarGrams = sugar
+            entryToEdit.fiberGrams = fiber
+            entryToEdit.saturatedFatGrams = saturatedFat
+            entryToEdit.saltGrams = salt
+            entryToEdit.updatedAt = .now
+        } else {
+            modelContext.insert(
+                NutritionEntry(
+                    foodName: selectedFood.name,
+                    brand: selectedFood.brand,
+                    mealType: selectedMealType,
+                    amount: amount,
+                    unit: selectedUnit,
+                    calories: calories,
+                    proteinGrams: protein,
+                    carbohydratesGrams: carbohydrates,
+                    fatGrams: fat,
+                    sugarGrams: sugar,
+                    fiberGrams: fiber,
+                    saturatedFatGrams: saturatedFat,
+                    saltGrams: salt,
+                    date: selectedDate,
+                    externalFoodID: selectedFood.id
+                )
+            )
+        }
+
+        try? modelContext.save()
+        dismiss()
+    }
+}
+
+#Preview {
+    AddNutritionEntryView(selectedDate: .now, accentColor: .orange)
+        .modelContainer(for: [NutritionEntry.self], inMemory: true)
+}
