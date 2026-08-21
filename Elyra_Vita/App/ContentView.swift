@@ -367,7 +367,8 @@ struct ContentView: View {
                 UserSettings.self,
                 WaterEntry.self,
                 WeightEntry.self,
-                NutritionEntry.self
+                NutritionEntry.self,
+                CustomFood.self
             ],
             inMemory: true
         )

@@ -13,6 +13,9 @@ struct AddNutritionEntryView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
+    @Query(sort: \CustomFood.name)
+    private var customFoods: [CustomFood]
+
     // MARK: - Eingaben
 
     let selectedDate: Date
@@ -39,11 +42,13 @@ struct AddNutritionEntryView: View {
     @State private var fiberText = ""
     @State private var saturatedFatText = ""
     @State private var saltText = ""
+    @State private var customFoodSheetPresented = false
 
     private var filteredFoods: [NutritionFood] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return NutritionFood.localCatalog }
-        let localFoods = NutritionFood.localCatalog.filter {
+        let savedFoods = customFoods.map(\.nutritionFood)
+        guard !query.isEmpty else { return savedFoods + NutritionFood.localCatalog }
+        let localFoods = (savedFoods + NutritionFood.localCatalog).filter {
             $0.name.localizedCaseInsensitiveContains(query)
         }
         return localFoods + remoteFoods.filter { remote in
@@ -119,6 +124,12 @@ struct AddNutritionEntryView: View {
                                 .foregroundStyle(accentColor)
                         }
                         .accessibilityLabel("Barcode scannen")
+                    }
+
+                    Button {
+                        customFoodSheetPresented = true
+                    } label: {
+                        Label("Eigenes Lebensmittel anlegen", systemImage: "plus.circle")
                     }
 
                     if let selectedFood {
@@ -234,6 +245,17 @@ struct AddNutritionEntryView: View {
                     }
                 )
                 .ignoresSafeArea()
+            }
+            .sheet(isPresented: $customFoodSheetPresented) {
+                AddCustomFoodView { food in
+                    selectedFood = food
+                    amountText = "100"
+                    selectedUnit = food.unit
+                    setNutritionFields(for: food, amount: 100, unit: food.unit)
+                }
+                .presentationDetents([.large])
+                .presentationBackground(Color(.systemBackground))
+                .presentationDragIndicator(.visible)
             }
             .alert("Lebensmittel nicht gefunden", isPresented: Binding(
                 get: { errorMessage != nil },
@@ -380,6 +402,10 @@ struct AddNutritionEntryView: View {
                 $0.id == entryToEdit.externalFoodID
             } ?? NutritionFood.localCatalog.first {
                 $0.name == entryToEdit.foodName
+            } ?? customFoods.map(\.nutritionFood).first {
+                $0.id == entryToEdit.externalFoodID
+            } ?? customFoods.map(\.nutritionFood).first {
+                $0.name == entryToEdit.foodName
             }
             selectedUnit = entryToEdit.unit
             if let selectedFood,
@@ -458,5 +484,5 @@ struct AddNutritionEntryView: View {
 
 #Preview {
     AddNutritionEntryView(selectedDate: .now, accentColor: .orange)
-        .modelContainer(for: [NutritionEntry.self], inMemory: true)
+        .modelContainer(for: [NutritionEntry.self, CustomFood.self], inMemory: true)
 }
