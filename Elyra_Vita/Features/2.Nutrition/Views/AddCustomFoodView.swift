@@ -13,6 +13,7 @@ struct AddCustomFoodView: View {
 
     // MARK: - Eingaben
 
+    let foodToEdit: CustomFood?
     let onSaved: (NutritionFood) -> Void
 
     // MARK: - Zustand
@@ -30,6 +31,28 @@ struct AddCustomFoodView: View {
     @State private var saturatedFat = ""
     @State private var salt = ""
     @State private var saveErrorMessage: String?
+
+    init(
+        foodToEdit: CustomFood? = nil,
+        onSaved: @escaping (NutritionFood) -> Void = { _ in }
+    ) {
+        self.foodToEdit = foodToEdit
+        self.onSaved = onSaved
+        _name = State(initialValue: foodToEdit?.name ?? "")
+        _brand = State(initialValue: foodToEdit?.brand ?? "")
+        _unit = State(initialValue: foodToEdit?.unit ?? "g")
+        _pieceWeight = State(
+            initialValue: foodToEdit.map { $0.pieceWeight > 0 ? Self.editableNumber($0.pieceWeight) : "" } ?? ""
+        )
+        _calories = State(initialValue: foodToEdit.map { Self.editableNumber($0.caloriesPer100) } ?? "")
+        _protein = State(initialValue: foodToEdit.map { Self.editableNumber($0.proteinPer100) } ?? "")
+        _carbohydrates = State(initialValue: foodToEdit.map { Self.editableNumber($0.carbohydratesPer100) } ?? "")
+        _fat = State(initialValue: foodToEdit.map { Self.editableNumber($0.fatPer100) } ?? "")
+        _sugar = State(initialValue: foodToEdit.map { Self.editableNumber($0.sugarPer100) } ?? "")
+        _fiber = State(initialValue: foodToEdit.map { Self.editableNumber($0.fiberPer100) } ?? "")
+        _saturatedFat = State(initialValue: foodToEdit.map { Self.editableNumber($0.saturatedFatPer100) } ?? "")
+        _salt = State(initialValue: foodToEdit.map { Self.editableNumber($0.saltPer100) } ?? "")
+    }
 
     private var canSave: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
@@ -86,7 +109,7 @@ struct AddCustomFoodView: View {
                     nutrientField("Salz", text: $salt, unit: "g")
                 }
             }
-            .navigationTitle("Eigenes Lebensmittel")
+            .navigationTitle(foodToEdit == nil ? "Eigenes Lebensmittel" : "Lebensmittel bearbeiten")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -137,7 +160,7 @@ struct AddCustomFoodView: View {
     private func save() {
         guard let values = nutrientValues,
               pieceWeightIsValid else { return }
-        let customFood = CustomFood(
+        let customFood = foodToEdit ?? CustomFood(
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
             brand: brand,
             unit: unit,
@@ -152,15 +175,42 @@ struct AddCustomFoodView: View {
             saltPer100: values[7]
         )
 
-        modelContext.insert(customFood)
+        if foodToEdit != nil {
+            customFood.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            customFood.brand = brand
+            customFood.unit = unit
+            customFood.pieceWeight = pieceWeightValue ?? 0
+            customFood.caloriesPer100 = values[0]
+            customFood.proteinPer100 = values[1]
+            customFood.carbohydratesPer100 = values[2]
+            customFood.fatPer100 = values[3]
+            customFood.sugarPer100 = values[4]
+            customFood.fiberPer100 = values[5]
+            customFood.saturatedFatPer100 = values[6]
+            customFood.saltPer100 = values[7]
+            customFood.updatedAt = .now
+        } else {
+            modelContext.insert(customFood)
+        }
+
         do {
             try modelContext.save()
             onSaved(customFood.nutritionFood)
             dismiss()
         } catch {
-            modelContext.delete(customFood)
+            if foodToEdit == nil {
+                modelContext.delete(customFood)
+            } else {
+                modelContext.rollback()
+            }
             saveErrorMessage = error.localizedDescription
         }
+    }
+
+    private static func editableNumber(_ value: Double) -> String {
+        String(format: "%.2f", value)
+            .replacingOccurrences(of: ".00", with: "")
+            .replacingOccurrences(of: ".", with: ",")
     }
 }
 

@@ -14,6 +14,9 @@ struct NutritionView: View {
     @Query(sort: \NutritionEntry.date, order: .reverse)
     private var entries: [NutritionEntry]
 
+    @Query(sort: \CustomFood.name)
+    private var customFoods: [CustomFood]
+
     // MARK: - Eingaben
 
     let selectedDate: Date
@@ -66,6 +69,21 @@ struct NutritionView: View {
                     .listRowInsets(EdgeInsets())
             } header: {
                 Text("Tagesziel")
+            }
+
+            Section {
+                NavigationLink {
+                    CustomFoodsView(accentColor: accentColor)
+                } label: {
+                    HStack {
+                        Label("Meine Lebensmittel", systemImage: "fork.knife.circle")
+                        Spacer()
+                        Text(customFoods.count, format: .number)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                Text("Meine Lebensmittel")
             }
 
             Section {
