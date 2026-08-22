@@ -19,6 +19,9 @@ struct AddNutritionEntryView: View {
     @Query(sort: \NutritionEntry.date, order: .reverse)
     private var nutritionEntries: [NutritionEntry]
 
+    @Query(sort: \FavoriteFood.updatedAt, order: .reverse)
+    private var favoriteFoods: [FavoriteFood]
+
     // MARK: - Eingaben
 
     let selectedDate: Date
@@ -46,17 +49,36 @@ struct AddNutritionEntryView: View {
     @State private var saturatedFatText = ""
     @State private var saltText = ""
     @State private var customFoodSheetPresented = false
+    @State private var foodFilter: FoodFilter = .all
 
     private var filteredFoods: [NutritionFood] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let savedFoods = customFoods.map(\.nutritionFood)
-        guard !query.isEmpty else { return savedFoods + NutritionFood.localCatalog }
-        let localFoods = (savedFoods + NutritionFood.localCatalog).filter {
+        let localFoods: [NutritionFood]
+
+        switch foodFilter {
+        case .all:
+            localFoods = customFoods.map(\.nutritionFood) + NutritionFood.localCatalog
+        case .favorites:
+            localFoods = favoriteFoodsForDisplay
+        case .recent:
+            localFoods = recentlyUsedCustomFoods
+        }
+
+        guard !query.isEmpty else { return localFoods }
+
+        let matchingLocalFoods = localFoods.filter {
             $0.name.localizedCaseInsensitiveContains(query)
         }
-        return localFoods + remoteFoods.filter { remote in
-            !localFoods.contains(where: { $0.id == remote.id })
+
+        guard foodFilter == .all else { return matchingLocalFoods }
+
+        return matchingLocalFoods + remoteFoods.filter { remote in
+            !matchingLocalFoods.contains(where: { $0.id == remote.id })
         }
+    }
+
+    private var favoriteFoodsForDisplay: [NutritionFood] {
+        Array(favoriteFoods.map(\.nutritionFood).prefix(5))
     }
 
     private var recentlyUsedCustomFoods: [NutritionFood] {
@@ -132,41 +154,41 @@ struct AddNutritionEntryView: View {
             Form {
                 if selectedFood == nil {
                     Section {
-                        HStack {
-                            TextField("Suchen", text: $searchText)
-                                .textInputAutocapitalization(.never)
+                        VStack(spacing: 12) {
+                            Picker("Lebensmittel anzeigen", selection: $foodFilter) {
+                                ForEach(FoodFilter.allCases) { filter in
+                                    Text(filter.title).tag(filter)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .accessibilityLabel("Lebensmittelfilter")
+
+                            Divider()
+
+                            HStack {
+                                TextField("Suchen", text: $searchText)
+                                    .textInputAutocapitalization(.never)
+
+                                Button {
+                                    scannerPresented = true
+                                } label: {
+                                    Image(systemName: "barcode.viewfinder")
+                                        .font(.title3)
+                                        .foregroundStyle(accentColor)
+                                }
+                                .accessibilityLabel("Barcode scannen")
+                            }
+
+                            Divider()
 
                             Button {
-                                scannerPresented = true
+                                customFoodSheetPresented = true
                             } label: {
-                                Image(systemName: "barcode.viewfinder")
-                                    .font(.title3)
-                                    .foregroundStyle(accentColor)
+                                Label("Eigenes Lebensmittel anlegen", systemImage: "plus.circle")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                             }
-                            .accessibilityLabel("Barcode scannen")
                         }
-
-                        Button {
-                            customFoodSheetPresented = true
-                        } label: {
-                            Label("Eigenes Lebensmittel anlegen", systemImage: "plus.circle")
-                        }
-                    }
-                }
-
-                if entryToEdit == nil,
-                   selectedFood == nil,
-                   searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                   !recentlyUsedCustomFoods.isEmpty {
-                    Section("Zuletzt verwendet") {
-                        ForEach(recentlyUsedCustomFoods) { food in
-                            Button {
-                                selectFood(food)
-                            } label: {
-                                foodRow(food)
-                            }
-                            .buttonStyle(.plain)
-                        }
+                        .padding(.vertical, 4)
                     }
                 }
 
@@ -191,6 +213,16 @@ struct AddNutritionEntryView: View {
                                 foodRow(food)
                             }
                             .buttonStyle(.plain)
+                            .contextMenu {
+                                Button(
+                                    isFavorite(food)
+                                        ? "Aus Favoriten entfernen"
+                                        : "Als Favorit markieren",
+                                    systemImage: isFavorite(food) ? "star.slash" : "star"
+                                ) {
+                                    toggleFavorite(food)
+                                }
+                            }
                         }
                     }
                 }
@@ -252,8 +284,13 @@ struct AddNutritionEntryView: View {
                 }
             }
             .onAppear(perform: prepareForEditing)
-            .task(id: searchText) {
+            .task(id: "\(searchText)|\(foodFilter.rawValue)") {
                 await searchRemoteFoods()
+            }
+            .onChange(of: searchText) { _, newValue in
+                if !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    foodFilter = .all
+                }
             }
             .onChange(of: amountText) { _, newValue in
                 guard entryToEdit == nil,
@@ -315,6 +352,12 @@ struct AddNutritionEntryView: View {
 
             Spacer()
 
+            if isFavorite(food) {
+                Image(systemName: "star.fill")
+                    .foregroundStyle(.yellow)
+                    .accessibilityLabel("Favorit")
+            }
+
             Text(food.caloriesPer100, format: .number.precision(.fractionLength(0)))
                 .foregroundStyle(.secondary)
             Text("kcal/100")
@@ -339,6 +382,25 @@ struct AddNutritionEntryView: View {
         amountText = "100"
         selectedUnit = food.unit
         setNutritionFields(for: food, amount: 100, unit: food.unit)
+    }
+
+    private func isFavorite(_ food: NutritionFood) -> Bool {
+        favoriteFoods.contains { $0.id == food.id }
+    }
+
+    private func toggleFavorite(_ food: NutritionFood) {
+        if let favorite = favoriteFoods.first(where: { $0.id == food.id }) {
+            modelContext.delete(favorite)
+        } else {
+            modelContext.insert(FavoriteFood(food: food))
+        }
+
+        do {
+            try modelContext.save()
+        } catch {
+            modelContext.rollback()
+            errorMessage = error.localizedDescription
+        }
     }
 
     private func nutrientField(_ title: String, text: Binding<String>, unit: String) -> some View {
@@ -371,7 +433,7 @@ struct AddNutritionEntryView: View {
     /// eine Netzwerkanfrage auslöst. Der lokale Katalog bleibt sofort sichtbar.
     private func searchRemoteFoods() async {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard query.count >= 2, selectedFood == nil else {
+        guard query.count >= 2, selectedFood == nil, foodFilter == .all else {
             remoteFoods = []
             return
         }
@@ -523,5 +585,21 @@ struct AddNutritionEntryView: View {
 
 #Preview {
     AddNutritionEntryView(selectedDate: .now, accentColor: .orange)
-        .modelContainer(for: [NutritionEntry.self, CustomFood.self], inMemory: true)
+        .modelContainer(for: [NutritionEntry.self, CustomFood.self, FavoriteFood.self], inMemory: true)
+}
+
+private enum FoodFilter: String, CaseIterable, Identifiable {
+    case all
+    case favorites
+    case recent
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .all: "Alle"
+        case .favorites: "Favoriten"
+        case .recent: "Zuletzt"
+        }
+    }
 }

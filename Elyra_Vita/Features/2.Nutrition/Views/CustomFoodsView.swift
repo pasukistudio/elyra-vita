@@ -11,6 +11,9 @@ struct CustomFoodsView: View {
     @Query(sort: \CustomFood.name)
     private var customFoods: [CustomFood]
 
+    @Query(sort: \FavoriteFood.updatedAt, order: .reverse)
+    private var favoriteFoods: [FavoriteFood]
+
     let accentColor: Color
 
     @State private var searchText = ""
@@ -117,6 +120,12 @@ struct CustomFoodsView: View {
                 Button("Bearbeiten", systemImage: "pencil") {
                     editingFood = food
                 }
+                Button(
+                    isFavorite(food) ? "Aus Favoriten entfernen" : "Als Favorit markieren",
+                    systemImage: isFavorite(food) ? "star.slash" : "star"
+                ) {
+                    toggleFavorite(food)
+                }
                 Button("Löschen", systemImage: "trash", role: .destructive) {
                     deletingFood = food
                 }
@@ -128,6 +137,27 @@ struct CustomFoodsView: View {
             .accessibilityLabel("Aktionen für \(food.name)")
         }
         .padding(.vertical, 4)
+    }
+
+    private func toggleFavorite(_ food: CustomFood) {
+        let nutritionFood = food.nutritionFood
+
+        if let favorite = favoriteFoods.first(where: { $0.id == nutritionFood.id }) {
+            modelContext.delete(favorite)
+        } else {
+            modelContext.insert(FavoriteFood(food: nutritionFood))
+        }
+
+        do {
+            try modelContext.save()
+        } catch {
+            modelContext.rollback()
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func isFavorite(_ food: CustomFood) -> Bool {
+        favoriteFoods.contains { $0.id == food.nutritionFood.id }
     }
 
     private func deleteFood() {
@@ -149,5 +179,5 @@ struct CustomFoodsView: View {
     NavigationStack {
         CustomFoodsView(accentColor: .orange)
     }
-    .modelContainer(for: [CustomFood.self], inMemory: true)
+    .modelContainer(for: [CustomFood.self, FavoriteFood.self], inMemory: true)
 }
