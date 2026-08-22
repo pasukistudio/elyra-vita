@@ -259,6 +259,81 @@ final class WaterAndHealthTests: XCTestCase {
         XCTAssertEqual(fetchedFavorite.nutritionFood.source, food.source)
     }
 
+    // MARK: - Planung
+
+    /// Prüft mehrere Einkaufslisten sowie den Lebenszyklus eines Eintrags.
+    func testShoppingListsSupportMultipleListsAndItemUpdates() throws {
+        let container = try makeInMemoryContainer()
+        let context = container.mainContext
+        let groceries = ShoppingList(name: "Wocheneinkauf")
+        let pharmacy = ShoppingList(name: "Drogerie")
+        let milk = ShoppingListItem(
+            listID: groceries.id,
+            name: "Milch",
+            quantity: 2,
+            unit: "Packung"
+        )
+
+        context.insert(groceries)
+        context.insert(pharmacy)
+        context.insert(milk)
+        try context.save()
+
+        milk.update(isCompleted: true)
+        groceries.update(name: "Wocheneinkauf aktualisiert")
+        try context.save()
+
+        let lists = try context.fetch(FetchDescriptor<ShoppingList>())
+        let items = try context.fetch(FetchDescriptor<ShoppingListItem>())
+        XCTAssertEqual(lists.count, 2)
+        XCTAssertEqual(lists.first { $0.id == groceries.id }?.name, "Wocheneinkauf aktualisiert")
+        XCTAssertEqual(items.first?.listID, groceries.id)
+        XCTAssertTrue(items.first?.isCompleted == true)
+        XCTAssertEqual(items.first?.quantity, 2)
+        XCTAssertEqual(items.first?.unit, "Packung")
+    }
+
+    /// Prüft die Tagesgrenze für erledigte Einkaufsartikel.
+    func testCompletedShoppingListItemsExpireOnTheFollowingDay() throws {
+        let container = try makeInMemoryContainer()
+        let context = container.mainContext
+        let list = ShoppingList(name: "Einkauf")
+        let item = ShoppingListItem(listID: list.id, name: "Müllbeutel")
+
+        context.insert(list)
+        context.insert(item)
+        item.update(isCompleted: true)
+
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: .now)!
+        item.completedAt = yesterday
+        XCTAssertTrue(item.shouldBeRemoved(on: .now))
+
+        let today = Calendar.current.startOfDay(for: .now)
+        item.completedAt = today
+        XCTAssertFalse(item.shouldBeRemoved(on: .now))
+    }
+
+    /// Prüft, dass frühere Artikel als Vorschlagshistorie erhalten bleiben.
+    func testShoppingListItemHistorySurvivesActiveItemDeletion() throws {
+        let container = try makeInMemoryContainer()
+        let context = container.mainContext
+        let list = ShoppingList(name: "Einkauf")
+        let item = ShoppingListItem(listID: list.id, name: "Müllbeutel")
+        let history = ShoppingListItemHistory(listID: list.id, name: item.name)
+
+        context.insert(list)
+        context.insert(item)
+        context.insert(history)
+        try context.save()
+
+        context.delete(item)
+        try context.save()
+
+        let remainingHistory = try context.fetch(FetchDescriptor<ShoppingListItemHistory>())
+        XCTAssertEqual(remainingHistory.count, 1)
+        XCTAssertEqual(remainingHistory.first?.name, "Müllbeutel")
+    }
+
     /// Prüft, dass Open Food Facts alle verfügbaren Nährwerte in das lokale
     /// Lebensmittelmodell übernimmt und die Barcode-Quelle erhalten bleibt.
     func testOpenFoodFactsProductMapsNutritionValues() async throws {
@@ -491,7 +566,16 @@ final class WaterAndHealthTests: XCTestCase {
 
     /// Erstellt für jeden Test einen isolierten SwiftData-Speicher.
     private func makeInMemoryContainer() throws -> ModelContainer {
-        let schema = Schema([WaterEntry.self, WeightEntry.self, NutritionEntry.self, CustomFood.self, FavoriteFood.self])
+        let schema = Schema([
+            WaterEntry.self,
+            WeightEntry.self,
+            NutritionEntry.self,
+            CustomFood.self,
+            FavoriteFood.self,
+            ShoppingList.self,
+            ShoppingListItem.self,
+            ShoppingListItemHistory.self
+        ])
         let configuration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: true
