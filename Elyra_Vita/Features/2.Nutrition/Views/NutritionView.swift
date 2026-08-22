@@ -17,6 +17,9 @@ struct NutritionView: View {
     @Query(sort: \CustomFood.name)
     private var customFoods: [CustomFood]
 
+    @Query(sort: \FavoriteFood.updatedAt, order: .reverse)
+    private var favoriteFoods: [FavoriteFood]
+
     // MARK: - Eingaben
 
     let selectedDate: Date
@@ -27,6 +30,7 @@ struct NutritionView: View {
 
     @State private var editingEntry: NutritionEntry?
     @State private var deletingEntry: NutritionEntry?
+    @State private var favoriteErrorMessage: String?
 
     private var dayEntries: [NutritionEntry] {
         entries
@@ -114,6 +118,11 @@ struct NutritionView: View {
         ) {
             Button("Löschen", role: .destructive) { deleteEntry() }
             Button("Abbrechen", role: .cancel) { deletingEntry = nil }
+        }
+        .alert("Favorit konnte nicht gespeichert werden", isPresented: favoriteErrorPresented) {
+            Button("OK", role: .cancel) { favoriteErrorMessage = nil }
+        } message: {
+            Text(favoriteErrorMessage ?? "Unbekannter Fehler")
         }
         .sheet(item: $editingEntry) { entry in
             AddNutritionEntryView(
@@ -221,6 +230,14 @@ struct NutritionView: View {
             }
 
             Menu {
+                Button(
+                    isFavorite(entry)
+                        ? "Aus Favoriten entfernen"
+                        : "Als Favorit markieren",
+                    systemImage: isFavorite(entry) ? "star.slash" : "star"
+                ) {
+                    toggleFavorite(entry)
+                }
                 Button("Bearbeiten", systemImage: "pencil") {
                     editingEntry = entry
                 }
@@ -239,6 +256,70 @@ struct NutritionView: View {
 
     // MARK: - Änderungen
 
+    private var favoriteErrorPresented: Binding<Bool> {
+        Binding(
+            get: { favoriteErrorMessage != nil },
+            set: { if !$0 { favoriteErrorMessage = nil } }
+        )
+    }
+
+    private func isFavorite(_ entry: NutritionEntry) -> Bool {
+        let food = nutritionFood(for: entry)
+        return favoriteFoods.contains { $0.id == food.id }
+    }
+
+    private func toggleFavorite(_ entry: NutritionEntry) {
+        let food = nutritionFood(for: entry)
+
+        if let favorite = favoriteFoods.first(where: { $0.id == food.id }) {
+            modelContext.delete(favorite)
+        } else {
+            modelContext.insert(FavoriteFood(food: food))
+        }
+
+        do {
+            try modelContext.save()
+        } catch {
+            modelContext.rollback()
+            favoriteErrorMessage = error.localizedDescription
+        }
+    }
+
+    /// Rekonstruiert die gemeinsame Lebensmittel-Darstellung aus dem Eintrag.
+    /// Für bekannte Lebensmittel bleiben vollständige Nährwerte und
+    /// Stückangaben erhalten; der Fallback deckt ältere Einträge ab.
+    private func nutritionFood(for entry: NutritionEntry) -> NutritionFood {
+        if let favorite = favoriteFoods.first(where: { $0.id == entry.externalFoodID }) {
+            return favorite.nutritionFood
+        }
+
+        if let customFood = customFoods.first(where: { $0.nutritionFood.id == entry.externalFoodID }) {
+            return customFood.nutritionFood
+        }
+
+        if let localFood = NutritionFood.localCatalog.first(where: { $0.id == entry.externalFoodID }) {
+            return localFood
+        }
+
+        return NutritionFood(
+            id: entry.externalFoodID.isEmpty
+                ? "entry-\(entry.foodName)-\(entry.date.timeIntervalSince1970)"
+                : entry.externalFoodID,
+            name: entry.foodName,
+            brand: entry.brand,
+            unit: entry.unit,
+            caloriesPer100: entry.calories,
+            proteinPer100: entry.proteinGrams,
+            carbohydratesPer100: entry.carbohydratesGrams,
+            fatPer100: entry.fatGrams,
+            sugarPer100: entry.sugarGrams,
+            fiberPer100: entry.fiberGrams,
+            saturatedFatPer100: entry.saturatedFatGrams,
+            saltPer100: entry.saltGrams,
+            source: entry.source
+        )
+    }
+
     private func deleteEntry() {
         guard let deletingEntry else { return }
         modelContext.delete(deletingEntry)
@@ -249,5 +330,5 @@ struct NutritionView: View {
 
 #Preview {
     NutritionView(accentColor: .orange)
-        .modelContainer(for: [NutritionEntry.self, CustomFood.self], inMemory: true)
+        .modelContainer(for: [NutritionEntry.self, CustomFood.self, FavoriteFood.self], inMemory: true)
 }

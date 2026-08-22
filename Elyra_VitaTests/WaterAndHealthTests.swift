@@ -238,6 +238,27 @@ final class WaterAndHealthTests: XCTestCase {
         XCTAssertTrue(try context.fetch(FetchDescriptor<CustomFood>()).isEmpty)
     }
 
+    /// Prüft, dass Favoriten für alle Lebensmittelquellen als Snapshot
+    /// gespeichert und wieder in den gemeinsamen NutritionFood-Typ überführt werden.
+    func testFavoriteFoodPersistsNutritionSnapshot() throws {
+        let container = try makeInMemoryContainer()
+        let context = container.mainContext
+        let food = NutritionFood.localCatalog[0]
+        let favorite = FavoriteFood(food: food)
+
+        context.insert(favorite)
+        try context.save()
+
+        let fetchedFavorite = try XCTUnwrap(
+            try context.fetch(FetchDescriptor<FavoriteFood>()).first
+        )
+
+        XCTAssertEqual(fetchedFavorite.id, food.id)
+        XCTAssertEqual(fetchedFavorite.nutritionFood.name, food.name)
+        XCTAssertEqual(fetchedFavorite.nutritionFood.caloriesPer100, food.caloriesPer100)
+        XCTAssertEqual(fetchedFavorite.nutritionFood.source, food.source)
+    }
+
     /// Prüft, dass Open Food Facts alle verfügbaren Nährwerte in das lokale
     /// Lebensmittelmodell übernimmt und die Barcode-Quelle erhalten bleibt.
     func testOpenFoodFactsProductMapsNutritionValues() async throws {
@@ -467,7 +488,7 @@ final class WaterAndHealthTests: XCTestCase {
 
     /// Erstellt für jeden Test einen isolierten SwiftData-Speicher.
     private func makeInMemoryContainer() throws -> ModelContainer {
-        let schema = Schema([WaterEntry.self, WeightEntry.self, NutritionEntry.self, CustomFood.self])
+        let schema = Schema([WaterEntry.self, WeightEntry.self, NutritionEntry.self, CustomFood.self, FavoriteFood.self])
         let configuration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: true
