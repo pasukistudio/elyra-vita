@@ -33,6 +33,9 @@ struct CalorieWaterSummaryCard: View {
     /// Öffnet den Wasser-Trend mit Diagramm und Logbuch.
     let onWaterTrendTap: () -> Void
 
+    /// Öffnet den Kalorien-Trend mit Diagramm und Logbuch.
+    let onCalorieTrendTap: () -> Void
+
     // MARK: - Initialisierung
 
     init(
@@ -43,7 +46,8 @@ struct CalorieWaterSummaryCard: View {
         hasCalorieGoal: Bool = true,
         hasWaterGoal: Bool = true,
         accentColor: Color,
-        onWaterTrendTap: @escaping () -> Void = {}
+        onWaterTrendTap: @escaping () -> Void = {},
+        onCalorieTrendTap: @escaping () -> Void = {}
     ) {
         self.consumedCalories = max(0, consumedCalories)
         self.calorieGoal = max(0, calorieGoal)
@@ -53,6 +57,7 @@ struct CalorieWaterSummaryCard: View {
         self.hasWaterGoal = hasWaterGoal
         self.accentColor = accentColor
         self.onWaterTrendTap = onWaterTrendTap
+        self.onCalorieTrendTap = onCalorieTrendTap
     }
 
     // MARK: - Berechnete Werte
@@ -86,16 +91,20 @@ struct CalorieWaterSummaryCard: View {
 
     /// Linke Spalte für das Kalorienziel.
     private var calorieColumn: some View {
-        goalColumn(
-            title: "Kalorien",
-            icon: "flame.fill",
-            iconColor: .orange,
-            value: "\(consumedCalories) kcal",
-            goalText: hasCalorieGoal ? "von \(calorieGoal) kcal" : "Kein Ziel festgelegt",
-            progress: calorieProgress,
-            progressColor: consumedCalories > calorieGoal ? .red : .orange,
-            percentage: Int(calorieProgress * 100)
-        )
+        Button(action: onCalorieTrendTap) {
+            goalColumn(
+                title: "Kalorien",
+                icon: "flame.fill",
+                iconColor: .orange,
+                value: "\(consumedCalories) kcal",
+                goalText: hasCalorieGoal ? "von \(calorieGoal) kcal" : "Kein Ziel festgelegt",
+                progress: calorieProgress,
+                progressColor: consumedCalories > calorieGoal ? .red : .orange,
+                percentage: Int(calorieProgress * 100)
+            )
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
     }
 
     /// Rechte Spalte für das Wasserziel.

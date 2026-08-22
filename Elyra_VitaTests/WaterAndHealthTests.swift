@@ -434,6 +434,9 @@ final class WaterAndHealthTests: XCTestCase {
 
     /// Prüft, dass lokale und Apple-Health-Metriken klar getrennt bleiben.
     func testHealthTrendMetricsDeclareTheirDataSource() {
+        XCTAssertEqual(HealthTrendMetric.calories.title, "Kalorien")
+        XCTAssertEqual(HealthTrendMetric.calories.unit, "kcal")
+        XCTAssertFalse(HealthTrendMetric.calories.usesHealthKit)
         XCTAssertTrue(HealthTrendMetric.steps.usesHealthKit)
         XCTAssertTrue(HealthTrendMetric.totalEnergy.usesHealthKit)
         XCTAssertFalse(HealthTrendMetric.weight.usesHealthKit)

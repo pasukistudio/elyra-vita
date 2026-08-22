@@ -89,13 +89,14 @@ struct OverviewView: View {
 
             /// Kalorien und Wasser werden kompakt in einer gemeinsamen Karte angezeigt.
             Section {
-                CalorieWaterSummaryCard(
+        CalorieWaterSummaryCard(
                     consumedCalories: consumedCalories,
                     calorieGoal: calorieGoal,
                     consumedWater: consumedWater,
                     waterGoal: waterGoal,
                     accentColor: accentColor,
-                    onWaterTrendTap: onOpenWaterTrend
+                    onWaterTrendTap: onOpenWaterTrend,
+                    onCalorieTrendTap: { onOpenHealthMetric(.calories) }
                 )
                 .listRowInsets(EdgeInsets())
             } header: {

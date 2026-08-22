@@ -45,12 +45,12 @@ struct FavoritesView: View {
         .listStyle(.insetGrouped)
         .navigationTitle("Meine Favoriten")
         .sheet(item: $selectedFood) { food in
-            AddNutritionEntryView(
+            FavoriteQuickAddView(
                 selectedDate: selectedDate,
                 accentColor: accentColor,
-                initialFood: food
+                food: food
             )
-            .presentationDetents([.medium, .large])
+            .presentationDetents([.large])
             .presentationDragIndicator(.visible)
             .presentationBackground(Color(.systemBackground))
         }

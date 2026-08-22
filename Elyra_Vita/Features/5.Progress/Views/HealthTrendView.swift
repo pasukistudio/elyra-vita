@@ -22,6 +22,9 @@ struct HealthTrendView: View {
     @Query(sort: \WeightEntry.date, order: .forward)
     private var weightEntries: [WeightEntry]
 
+    @Query(sort: \NutritionEntry.date, order: .forward)
+    private var nutritionEntries: [NutritionEntry]
+
     @State private var selectedRange: HealthTrendRange = .week
     @State private var points: [HealthTrendPoint] = []
     @State private var isLoading = false
@@ -549,6 +552,20 @@ struct HealthTrendView: View {
         let calendar = Calendar.current
 
         switch metric {
+        case .calories:
+            let grouped = Dictionary(grouping: nutritionEntries.filter {
+                $0.date >= rangeStart && $0.date < rangeEnd
+            }) {
+                calendar.startOfDay(for: $0.date)
+            }
+
+            return grouped.keys.sorted().map { date in
+                HealthTrendPoint(
+                    date: date,
+                    value: grouped[date, default: []].reduce(0) { $0 + $1.calories }
+                )
+            }
+
         case .water:
             let grouped = Dictionary(grouping: waterEntries.filter {
                 $0.date >= rangeStart && $0.date < rangeEnd
@@ -575,6 +592,7 @@ struct HealthTrendView: View {
 
     private func value(for metric: HealthTrendMetric, in metrics: HealthMetrics) -> Double? {
         switch metric {
+        case .calories: nil
         case .steps: metrics.steps
         case .walkingRunningDistance: metrics.walkingRunningDistanceKilometers
         case .activeEnergy: metrics.activeEnergyKilocalories
@@ -594,5 +612,5 @@ struct HealthTrendView: View {
     NavigationStack {
         HealthTrendView(metric: .steps, accentColor: .blue)
     }
-    .modelContainer(for: [WaterEntry.self, WeightEntry.self], inMemory: true)
+    .modelContainer(for: [WaterEntry.self, WeightEntry.self, NutritionEntry.self], inMemory: true)
 }

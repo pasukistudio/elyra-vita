@@ -39,6 +39,7 @@ struct AddNutritionEntryView: View {
     @State private var scannerPresented = false
     @State private var errorMessage: String?
     @State private var amountText = "100"
+    @State private var pieceWeightText = ""
     @State private var selectedUnit = "g"
     @State private var selectedMealType: NutritionMealType = .snack
     @State private var caloriesText = ""
@@ -62,7 +63,7 @@ struct AddNutritionEntryView: View {
         case .favorites:
             localFoods = favoriteFoodsForDisplay
         case .recent:
-            localFoods = recentlyUsedCustomFoods
+            localFoods = recentlyUsedFoods
         }
 
         guard !query.isEmpty else { return localFoods }
@@ -82,24 +83,98 @@ struct AddNutritionEntryView: View {
         Array(favoriteFoods.map(\.nutritionFood).prefix(5))
     }
 
-    private var recentlyUsedCustomFoods: [NutritionFood] {
+    /// Liefert die zuletzt geloggten Lebensmittel aus allen Quellen.
+    /// Dazu gehören auch gescannte Open-Food-Facts-Produkte.
+    private var recentlyUsedFoods: [NutritionFood] {
         var seenIDs = Set<String>()
 
         let foods: [NutritionFood] = nutritionEntries.compactMap { entry in
-            guard entry.source == "custom",
-                  !entry.externalFoodID.isEmpty,
-                  seenIDs.insert(entry.externalFoodID).inserted else {
+            let key = entry.externalFoodID.isEmpty
+                ? "\(entry.source)-\(entry.foodName)"
+                : entry.externalFoodID
+
+            guard seenIDs.insert(key).inserted else {
                 return nil
             }
 
-            return customFoods.first { $0.nutritionFood.id == entry.externalFoodID }?.nutritionFood
+            return nutritionFood(for: entry)
         }
 
         return Array(foods.prefix(5))
     }
 
+    /// Rekonstruiert ein Lebensmittel aus einem gespeicherten Verzehr.
+    /// Bekannte lokale und eigene Lebensmittel liefern den vollständigen
+    /// Katalogeintrag; externe Produkte bleiben dank des Snapshots ebenfalls
+    /// erneut auswählbar.
+    private func nutritionFood(for entry: NutritionEntry) -> NutritionFood {
+        if let favorite = favoriteFoods.first(where: { $0.id == entry.externalFoodID }) {
+            return favorite.nutritionFood
+        }
+
+        if let customFood = customFoods.first(where: { $0.nutritionFood.id == entry.externalFoodID }) {
+            return customFood.nutritionFood
+        }
+
+        if let localFood = NutritionFood.localCatalog.first(where: { $0.id == entry.externalFoodID }) {
+            return localFood
+        }
+
+        let isPieceEntry = entry.unit == "piece" && entry.pieceWeight > 0
+        let amountFactor: Double
+        if isPieceEntry {
+            amountFactor = entry.pieceWeight / 100
+        } else if entry.unit == "g" || entry.unit == "ml" {
+            amountFactor = max(entry.amount, 1) / 100
+        } else {
+            amountFactor = 1
+        }
+
+        return NutritionFood(
+            id: entry.externalFoodID.isEmpty
+                ? "recent-\(entry.source)-\(entry.foodName)"
+                : entry.externalFoodID,
+            name: entry.foodName,
+            brand: entry.brand,
+            unit: isPieceEntry ? "g" : entry.unit,
+            caloriesPer100: entry.calories / amountFactor,
+            proteinPer100: entry.proteinGrams / amountFactor,
+            carbohydratesPer100: entry.carbohydratesGrams / amountFactor,
+            fatPer100: entry.fatGrams / amountFactor,
+            sugarPer100: entry.sugarGrams / amountFactor,
+            fiberPer100: entry.fiberGrams / amountFactor,
+            saturatedFatPer100: entry.saturatedFatGrams / amountFactor,
+            saltPer100: entry.saltGrams / amountFactor,
+            source: entry.source
+        )
+    }
+
     private var parsedAmount: Double? {
         parsedNumber(amountText)
+    }
+
+    private var pieceWeight: Double? {
+        guard let value = parsedNumber(pieceWeightText), value > 0 else { return nil }
+        return value
+    }
+
+    private var selectedUnitOptions: [NutritionUnitOption] {
+        guard let selectedFood else { return [] }
+        var options = [NutritionUnitOption(
+            id: selectedFood.unit,
+            title: selectedFood.unit == "ml" ? "Milliliter" : "Gramm",
+            symbol: selectedFood.unit,
+            baseAmount: 1
+        )]
+
+        options.append(NutritionUnitOption(
+            id: "piece",
+            title: "Stück",
+            symbol: "Stück",
+            baseAmount: pieceWeight ?? 0
+        ))
+
+        return options
     }
 
     // MARK: - Mengenanzeige
@@ -112,7 +187,12 @@ struct AddNutritionEntryView: View {
               let amount = parsedAmount,
               amount > 0 else { return nil }
 
-        let baseAmount = selectedFood.baseAmount(for: amount, unit: selectedUnit)
+        let baseAmount: Double
+        if let option = selectedUnitOptions.first(where: { $0.id == selectedUnit }) {
+            baseAmount = amount * option.baseAmount
+        } else {
+            baseAmount = selectedFood.baseAmount(for: amount, unit: selectedUnit)
+        }
         let formattedAmount = baseAmount.rounded() == baseAmount
             ? String(Int(baseAmount))
             : editableNumber(baseAmount)
@@ -231,7 +311,7 @@ struct AddNutritionEntryView: View {
                     }
                 }
 
-                if let selectedFood {
+                if selectedFood != nil {
                     Section("Menge") {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
@@ -239,13 +319,29 @@ struct AddNutritionEntryView: View {
                                     .keyboardType(.decimalPad)
 
                                 Picker("Einheit", selection: $selectedUnit) {
-                                    ForEach(selectedFood.unitOptions) { option in
+                                    ForEach(selectedUnitOptions) { option in
                                         Text(option.symbol)
                                             .tag(option.id)
                                     }
                                 }
                                 .pickerStyle(.menu)
                                 .labelsHidden()
+                            }
+
+                            if selectedUnit == "piece" {
+                                HStack {
+                                    Text("Gramm pro Stück")
+                                    Spacer()
+                                    TextField("z. B. 50", text: $pieceWeightText)
+                                        .keyboardType(.decimalPad)
+                                        .multilineTextAlignment(.trailing)
+                                        .frame(width: 90)
+                                    Text("g")
+                                        .foregroundStyle(.secondary)
+                                }
+                                Text("1 Stück entspricht dieser Grammzahl.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
 
                             if let baseAmountDescription {
@@ -284,7 +380,12 @@ struct AddNutritionEntryView: View {
 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Speichern") { save() }
-                        .disabled(selectedFood == nil || (parsedAmount ?? 0) <= 0 || nutritionValues == nil)
+                        .disabled(
+                            selectedFood == nil
+                                || (parsedAmount ?? 0) <= 0
+                                || nutritionValues == nil
+                                || (selectedUnit == "piece" && pieceWeight == nil)
+                        )
                 }
             }
             .onAppear(perform: prepareForEditing)
@@ -310,6 +411,16 @@ struct AddNutritionEntryView: View {
                 if entryToEdit == nil {
                     setNutritionFields(for: selectedFood, amount: amount, unit: newUnit)
                 }
+            }
+            .onChange(of: pieceWeightText) { _, _ in
+                if !selectedUnitOptions.contains(where: { $0.id == selectedUnit }) {
+                    selectedUnit = selectedFood?.unit ?? "g"
+                }
+                guard entryToEdit == nil,
+                      let selectedFood,
+                      let amount = parsedAmount,
+                      amount > 0 else { return }
+                setNutritionFields(for: selectedFood, amount: amount, unit: selectedUnit)
             }
             .sheet(isPresented: $scannerPresented) {
                 BarcodeScannerView(
@@ -381,7 +492,10 @@ struct AddNutritionEntryView: View {
     }
 
     private func selectFood(_ food: NutritionFood) {
+        let savedPieceWeight = favoriteFoods.first(where: { $0.id == food.id })?.pieceWeight
+            ?? nutritionEntries.first(where: { $0.externalFoodID == food.id && $0.pieceWeight > 0 })?.pieceWeight
         selectedFood = food
+        pieceWeightText = savedPieceWeight.map(editableNumber) ?? food.pieceWeight.map(editableNumber) ?? ""
         searchText = ""
         amountText = "100"
         selectedUnit = food.unit
@@ -476,7 +590,12 @@ struct AddNutritionEntryView: View {
 
     /// Überträgt die Datenbankwerte auf die aktuell eingegebene Menge.
     private func setNutritionFields(for food: NutritionFood, amount: Double, unit: String) {
-        let factor = food.baseAmount(for: amount, unit: unit) / 100
+        let factor: Double
+        if let option = selectedUnitOptions.first(where: { $0.id == unit }) {
+            factor = amount * option.baseAmount / 100
+        } else {
+            factor = food.baseAmount(for: amount, unit: unit) / 100
+        }
         caloriesText = editableNumber(food.caloriesPer100 * factor)
         proteinText = editableNumber(food.proteinPer100 * factor)
         carbohydratesText = editableNumber(food.carbohydratesPer100 * factor)
@@ -513,14 +632,16 @@ struct AddNutritionEntryView: View {
                 $0.name == entryToEdit.foodName
             }
             selectedUnit = entryToEdit.unit
+            pieceWeightText = entryToEdit.pieceWeight > 0 ? editableNumber(entryToEdit.pieceWeight) : ""
             if let selectedFood,
-               !selectedFood.unitOptions.contains(where: { $0.id == selectedUnit }) {
+               !selectedUnitOptions.contains(where: { $0.id == selectedUnit }) {
                 selectedUnit = selectedFood.unit
             }
             setNutritionFields(from: entryToEdit)
         } else {
             selectedMealType = initialMealType
             if let initialFood {
+                pieceWeightText = initialFood.pieceWeight.map(editableNumber) ?? ""
                 selectedUnit = initialFood.unit
                 setNutritionFields(for: initialFood, amount: 100, unit: initialFood.unit)
             }
@@ -547,6 +668,7 @@ struct AddNutritionEntryView: View {
             entryToEdit.foodName = selectedFood.name
             entryToEdit.brand = selectedFood.brand
             entryToEdit.unit = selectedUnit
+            entryToEdit.pieceWeight = pieceWeight ?? 0
             entryToEdit.externalFoodID = selectedFood.id
             entryToEdit.source = selectedFood.source
             entryToEdit.update(
@@ -571,6 +693,7 @@ struct AddNutritionEntryView: View {
                     mealType: selectedMealType,
                     amount: amount,
                     unit: selectedUnit,
+                    pieceWeight: pieceWeight ?? 0,
                     calories: calories,
                     proteinGrams: protein,
                     carbohydratesGrams: carbohydrates,

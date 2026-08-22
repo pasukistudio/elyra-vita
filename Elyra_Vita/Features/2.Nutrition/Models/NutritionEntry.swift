@@ -58,6 +58,8 @@ final class NutritionEntry {
     var mealTypeRawValue: String = NutritionMealType.snack.rawValue
     var amount: Double = 0
     var unit: String = "g"
+    /// Gespeicherte Umrechnung für eigene Stückdefinitionen, z. B. 1 Stück = 50 g.
+    var pieceWeight: Double = 0
 
     // MARK: - Nährwert-Snapshot
 
@@ -86,6 +88,7 @@ final class NutritionEntry {
         mealType: NutritionMealType,
         amount: Double,
         unit: String,
+        pieceWeight: Double = 0,
         calories: Double,
         proteinGrams: Double = 0,
         carbohydratesGrams: Double = 0,
@@ -104,6 +107,7 @@ final class NutritionEntry {
         self.mealTypeRawValue = mealType.rawValue
         self.amount = max(0, amount)
         self.unit = unit
+        self.pieceWeight = max(0, pieceWeight)
         self.calories = max(0, calories)
         self.proteinGrams = max(0, proteinGrams)
         self.carbohydratesGrams = max(0, carbohydratesGrams)
