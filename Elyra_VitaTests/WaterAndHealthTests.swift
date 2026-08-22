@@ -211,6 +211,33 @@ final class WaterAndHealthTests: XCTestCase {
         XCTAssertEqual(fetchedFood.updatedAt, fetchedFood.createdAt)
     }
 
+    /// Prüft den vollständigen Lebenszyklus eines eigenen Lebensmittels:
+    /// speichern, aktualisieren und löschen.
+    func testCustomFoodSupportsUpdateAndDeletion() throws {
+        let container = try makeInMemoryContainer()
+        let context = container.mainContext
+        let food = CustomFood(name: "Original", caloriesPer100: 100)
+        context.insert(food)
+        try context.save()
+
+        let originalUpdatedAt = food.updatedAt
+        food.name = "Aktualisiert"
+        food.caloriesPer100 = 125
+        food.updatedAt = originalUpdatedAt.addingTimeInterval(1)
+        try context.save()
+
+        let updatedFood = try XCTUnwrap(
+            try context.fetch(FetchDescriptor<CustomFood>()).first
+        )
+        XCTAssertEqual(updatedFood.name, "Aktualisiert")
+        XCTAssertEqual(updatedFood.caloriesPer100, 125)
+        XCTAssertGreaterThan(updatedFood.updatedAt, originalUpdatedAt)
+
+        context.delete(updatedFood)
+        try context.save()
+        XCTAssertTrue(try context.fetch(FetchDescriptor<CustomFood>()).isEmpty)
+    }
+
     /// Prüft, dass Open Food Facts alle verfügbaren Nährwerte in das lokale
     /// Lebensmittelmodell übernimmt und die Barcode-Quelle erhalten bleibt.
     func testOpenFoodFactsProductMapsNutritionValues() async throws {
