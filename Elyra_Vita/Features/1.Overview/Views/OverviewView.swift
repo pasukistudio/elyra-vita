@@ -17,6 +17,9 @@ struct OverviewView: View {
     @Query(sort: \NutritionEntry.date, order: .forward)
     private var nutritionEntries: [NutritionEntry]
 
+    @Query(sort: \WeightEntry.date, order: .reverse)
+    private var weightEntries: [WeightEntry]
+
     @State private var healthMetrics: HealthMetrics?
     @State private var healthErrorMessage: String?
 
@@ -65,6 +68,12 @@ struct OverviewView: View {
         }
     }
 
+    private var dayWeightKilograms: Double? {
+        weightEntries.first {
+            Calendar.current.isDate($0.date, inSameDayAs: selectedDate)
+        }?.weightKilograms
+    }
+
     /// Summiert einen Nährwert des Tages. Ohne Einträge bleibt der Wert nil,
     /// damit die Übersicht „– g“ statt eines irreführenden Nullwerts zeigt.
     private func nutritionTotal(
@@ -100,6 +109,7 @@ struct OverviewView: View {
                 DailyMetricsSummaryCard(
                     accentColor: accentColor,
                     healthMetrics: healthMetrics,
+                    loggedWeightKilograms: dayWeightKilograms,
                     nutritionProteinGrams: nutritionTotal(\.proteinGrams),
                     nutritionCarbohydratesGrams: nutritionTotal(\.carbohydratesGrams),
                     nutritionFatGrams: nutritionTotal(\.fatGrams),
@@ -181,7 +191,7 @@ struct OverviewView: View {
 #Preview("OverviewView") {
 OverviewView(accentColor: .blue)
         .modelContainer(
-            for: [WaterEntry.self, NutritionEntry.self, CustomFood.self],
+            for: [WaterEntry.self, NutritionEntry.self, CustomFood.self, WeightEntry.self],
             inMemory: true
         )
 }

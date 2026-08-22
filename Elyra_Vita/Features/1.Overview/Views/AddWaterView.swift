@@ -297,6 +297,7 @@ struct AddWaterView: View {
         onAddWater(amount)
         customAmountText = ""
         customAmountFocused = false
+        dismiss()
     }
 
     // MARK: - Bearbeiten
