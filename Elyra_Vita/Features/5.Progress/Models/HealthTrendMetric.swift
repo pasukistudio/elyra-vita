@@ -35,6 +35,7 @@ enum HealthTrendRange: String, CaseIterable, Identifiable {
 
 /// Einheitliche Beschreibung der aus der Übersicht öffnbaren Gesundheitswerte.
 enum HealthTrendMetric: String, CaseIterable, Identifiable {
+    case calories
     case steps
     case walkingRunningDistance
     case activeEnergy
@@ -50,6 +51,7 @@ enum HealthTrendMetric: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
+        case .calories: "Kalorien"
         case .steps: "Schritte"
         case .walkingRunningDistance: "Geh-/Laufdistanz"
         case .activeEnergy: "Aktiv verbrannt"
@@ -65,6 +67,7 @@ enum HealthTrendMetric: String, CaseIterable, Identifiable {
 
     var systemImage: String {
         switch self {
+        case .calories: "flame.fill"
         case .steps: "shoeprints.fill"
         case .walkingRunningDistance: "mappin.and.ellipse"
         case .activeEnergy: "figure.run"
@@ -80,6 +83,7 @@ enum HealthTrendMetric: String, CaseIterable, Identifiable {
 
     var color: Color {
         switch self {
+        case .calories: .orange
         case .steps: .green
         case .walkingRunningDistance: .blue
         case .activeEnergy: .teal
@@ -95,6 +99,7 @@ enum HealthTrendMetric: String, CaseIterable, Identifiable {
 
     var unit: String {
         switch self {
+        case .calories: "kcal"
         case .steps: "Schritte"
         case .walkingRunningDistance: "km"
         case .activeEnergy, .basalEnergy, .totalEnergy: "kcal"
@@ -105,7 +110,7 @@ enum HealthTrendMetric: String, CaseIterable, Identifiable {
     }
 
     var usesHealthKit: Bool {
-        self != .weight && self != .water
+        self != .calories && self != .weight && self != .water
     }
 }
 
