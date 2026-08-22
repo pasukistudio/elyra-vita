@@ -73,7 +73,7 @@ struct AddCustomFoodView: View {
 
     private var nutrientValues: [Double]? {
         let values = [calories, protein, carbohydrates, fat, sugar, fiber, saturatedFat, salt]
-            .map(parseNumber)
+            .map(parseNutrientNumber)
         guard values.allSatisfy({ $0 != nil && $0! >= 0 }) else { return nil }
         return values.compactMap { $0 }
     }
@@ -153,6 +153,12 @@ struct AddCustomFoodView: View {
         guard let number = Double(value.replacingOccurrences(of: ",", with: ".")),
               number.isFinite else { return nil }
         return number
+    }
+
+    private func parseNutrientNumber(_ value: String) -> Double? {
+        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedValue.isEmpty else { return 0 }
+        return parseNumber(trimmedValue)
     }
 
     // MARK: - Speichern
