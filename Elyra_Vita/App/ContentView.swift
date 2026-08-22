@@ -45,6 +45,9 @@ struct ContentView: View {
     /// Steuert die Navigation zur SettingsView.
     @State private var showingSettings = false
 
+    /// Steuert das Anlegen einer Einkaufsliste aus der Planning-Toolbar.
+    @State private var showingNewShoppingList = false
+
     /// Steuert die Navigation zu einem einzelnen Gesundheitstrend.
     @State private var selectedHealthMetric: HealthTrendMetric?
     @State private var selectedHealthMetricDate = Date()
@@ -124,7 +127,7 @@ struct ContentView: View {
 
     // MARK: - Gemeinsame Toolbar
 
-    /// Die Toolbar gilt nur fuer Uebersicht und Ernaehrung.
+    /// Die Toolbar wird je nach aktivem Tab angepasst.
     @ToolbarContentBuilder
     private var sharedToolbar: some ToolbarContent {
         if selectedSection == .overview ||
@@ -150,6 +153,14 @@ struct ContentView: View {
                     showingSettings = true
                 }
             )
+        } else if selectedSection == .planning {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showingNewShoppingList = true
+                } label: {
+                    Label("Neue Einkaufsliste", systemImage: "plus")
+                }
+            }
         }
     }
 
@@ -226,7 +237,7 @@ struct ContentView: View {
 
     /// Der Planungs-Tab.
     private var planning: some View {
-        PlanningView()
+        PlanningView(showingNewList: $showingNewShoppingList)
             .tabItem {
                 Label(
                     AppSection.planning.title,
@@ -369,7 +380,10 @@ struct ContentView: View {
                 WeightEntry.self,
                 NutritionEntry.self,
                 CustomFood.self,
-                FavoriteFood.self
+                FavoriteFood.self,
+                ShoppingList.self,
+                ShoppingListItem.self,
+                ShoppingListItemHistory.self
             ],
             inMemory: true
         )
