@@ -334,6 +334,58 @@ final class WaterAndHealthTests: XCTestCase {
         XCTAssertEqual(remainingHistory.first?.name, "Müllbeutel")
     }
 
+    /// Prüft mehrere To-do-Listen sowie Priorität, Fälligkeit und Änderungen.
+    func testTodoListsSupportMultipleListsAndTaskUpdates() throws {
+        let container = try makeInMemoryContainer()
+        let context = container.mainContext
+        let personal = TodoList(name: "Privat")
+        let work = TodoList(name: "Arbeit")
+        let dueDate = Calendar.current.date(byAdding: .day, value: 1, to: .now)!
+        let task = TodoTask(
+            listID: personal.id,
+            title: "Arzttermin vereinbaren",
+            dueDate: dueDate,
+            priority: 2
+        )
+
+        context.insert(personal)
+        context.insert(work)
+        context.insert(task)
+        try context.save()
+
+        task.update(title: "Arzttermin bestätigen", isCompleted: true)
+        personal.update(name: "Privat aktualisiert")
+        try context.save()
+
+        let lists = try context.fetch(FetchDescriptor<TodoList>())
+        let tasks = try context.fetch(FetchDescriptor<TodoTask>())
+        XCTAssertEqual(lists.count, 2)
+        XCTAssertEqual(lists.first { $0.id == personal.id }?.name, "Privat aktualisiert")
+        XCTAssertEqual(tasks.first?.title, "Arzttermin bestätigen")
+        XCTAssertEqual(tasks.first?.priority, 2)
+        XCTAssertTrue(tasks.first?.isCompleted == true)
+        XCTAssertEqual(tasks.first?.dueDate, dueDate)
+    }
+
+    /// Prüft, dass Aufgabenlisten mit ihren Aufgaben sauber gelöscht werden.
+    func testTodoListDeletionRemovesItsTasks() throws {
+        let container = try makeInMemoryContainer()
+        let context = container.mainContext
+        let list = TodoList(name: "Aufräumen")
+        let task = TodoTask(listID: list.id, title: "Keller sortieren")
+
+        context.insert(list)
+        context.insert(task)
+        try context.save()
+
+        context.delete(task)
+        context.delete(list)
+        try context.save()
+
+        XCTAssertTrue(try context.fetch(FetchDescriptor<TodoList>()).isEmpty)
+        XCTAssertTrue(try context.fetch(FetchDescriptor<TodoTask>()).isEmpty)
+    }
+
     /// Prüft, dass Open Food Facts alle verfügbaren Nährwerte in das lokale
     /// Lebensmittelmodell übernimmt und die Barcode-Quelle erhalten bleibt.
     func testOpenFoodFactsProductMapsNutritionValues() async throws {
@@ -574,7 +626,9 @@ final class WaterAndHealthTests: XCTestCase {
             FavoriteFood.self,
             ShoppingList.self,
             ShoppingListItem.self,
-            ShoppingListItemHistory.self
+            ShoppingListItemHistory.self,
+            TodoList.self,
+            TodoTask.self
         ])
         let configuration = ModelConfiguration(
             schema: schema,

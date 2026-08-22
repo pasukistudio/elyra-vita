@@ -48,6 +48,9 @@ struct ContentView: View {
     /// Steuert das Anlegen einer Einkaufsliste aus der Planning-Toolbar.
     @State private var showingNewShoppingList = false
 
+    /// Steuert das Anlegen einer To-do-Liste aus der Planning-Toolbar.
+    @State private var showingNewTodoList = false
+
     /// Steuert die Navigation zu einem einzelnen Gesundheitstrend.
     @State private var selectedHealthMetric: HealthTrendMetric?
     @State private var selectedHealthMetricDate = Date()
@@ -155,10 +158,19 @@ struct ContentView: View {
             )
         } else if selectedSection == .planning {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showingNewShoppingList = true
+                Menu {
+                    Button {
+                        showingNewShoppingList = true
+                    } label: {
+                        Label("Neue Einkaufsliste", systemImage: "cart")
+                    }
+                    Button {
+                        showingNewTodoList = true
+                    } label: {
+                        Label("Neue To-do-Liste", systemImage: "checklist")
+                    }
                 } label: {
-                    Label("Neue Einkaufsliste", systemImage: "plus")
+                    Label("Neue Liste", systemImage: "plus")
                 }
             }
         }
@@ -237,7 +249,10 @@ struct ContentView: View {
 
     /// Der Planungs-Tab.
     private var planning: some View {
-        PlanningView(showingNewList: $showingNewShoppingList)
+        PlanningView(
+            showingNewList: $showingNewShoppingList,
+            showingNewTodoList: $showingNewTodoList
+        )
             .tabItem {
                 Label(
                     AppSection.planning.title,
@@ -383,7 +398,9 @@ struct ContentView: View {
                 FavoriteFood.self,
                 ShoppingList.self,
                 ShoppingListItem.self,
-                ShoppingListItemHistory.self
+                ShoppingListItemHistory.self,
+                TodoList.self,
+                TodoTask.self
             ],
             inMemory: true
         )

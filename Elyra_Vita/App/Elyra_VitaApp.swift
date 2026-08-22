@@ -75,7 +75,9 @@ struct Elyra_VitaApp: App {
                 FavoriteFood.self,
                 ShoppingList.self,
                 ShoppingListItem.self,
-                ShoppingListItemHistory.self
+                ShoppingListItemHistory.self,
+                TodoList.self,
+                TodoTask.self
         ])
 
         // Die Daten bleiben auch nach dem Neustart der App erhalten.
