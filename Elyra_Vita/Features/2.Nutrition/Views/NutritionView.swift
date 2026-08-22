@@ -90,6 +90,26 @@ struct NutritionView: View {
                 Text("Meine Lebensmittel")
             }
 
+            if !favoriteFoods.isEmpty {
+                Section {
+                    NavigationLink {
+                        FavoritesView(
+                            selectedDate: selectedDate,
+                            accentColor: accentColor
+                        )
+                    } label: {
+                        HStack {
+                            Label("Meine Favoriten", systemImage: "star.circle")
+                            Spacer()
+                            Text(favoriteFoods.count, format: .number)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("Meine Favoriten")
+                }
+            }
+
             Section {
                 if dayEntries.isEmpty {
                     ContentUnavailableView(

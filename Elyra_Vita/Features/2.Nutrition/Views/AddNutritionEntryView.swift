@@ -27,6 +27,7 @@ struct AddNutritionEntryView: View {
     let selectedDate: Date
     let accentColor: Color
     let entryToEdit: NutritionEntry?
+    let initialFood: NutritionFood?
     let initialMealType: NutritionMealType
 
     // MARK: - Zustand
@@ -139,12 +140,15 @@ struct AddNutritionEntryView: View {
         selectedDate: Date,
         accentColor: Color,
         entryToEdit: NutritionEntry? = nil,
+        initialFood: NutritionFood? = nil,
         initialMealType: NutritionMealType = .snack
     ) {
         self.selectedDate = selectedDate
         self.accentColor = accentColor
         self.entryToEdit = entryToEdit
+        self.initialFood = initialFood
         self.initialMealType = initialMealType
+        _selectedFood = State(initialValue: initialFood)
     }
 
     // MARK: - Ansicht
@@ -516,6 +520,10 @@ struct AddNutritionEntryView: View {
             setNutritionFields(from: entryToEdit)
         } else {
             selectedMealType = initialMealType
+            if let initialFood {
+                selectedUnit = initialFood.unit
+                setNutritionFields(for: initialFood, amount: 100, unit: initialFood.unit)
+            }
         }
     }
 
