@@ -116,7 +116,7 @@ struct ContentView: View {
                 )
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
-                .presentationBackground(.regularMaterial)
+                .presentationBackground(Color(.systemBackground))
             }
             .appBackground()
         }

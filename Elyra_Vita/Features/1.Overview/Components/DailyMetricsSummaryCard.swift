@@ -15,6 +15,10 @@ struct DailyMetricsSummaryCard: View {
     /// Die für den ausgewählten Tag aus Apple Health gelesenen Werte.
     let healthMetrics: HealthMetrics?
 
+    /// Der lokal erfasste Gewichtswert für den ausgewählten Tag.
+    /// Dieser hat Vorrang vor dem optionalen Apple-Health-Wert.
+    let loggedWeightKilograms: Double?
+
     /// Die aus den gespeicherten Ernährungseinträgen summierten Makros.
     /// Diese Werte sind unabhängig von Apple-Health-Ernährungsdaten.
     let nutritionProteinGrams: Double?
@@ -27,6 +31,7 @@ struct DailyMetricsSummaryCard: View {
     init(
         accentColor: Color,
         healthMetrics: HealthMetrics? = nil,
+        loggedWeightKilograms: Double? = nil,
         nutritionProteinGrams: Double? = nil,
         nutritionCarbohydratesGrams: Double? = nil,
         nutritionFatGrams: Double? = nil,
@@ -34,6 +39,7 @@ struct DailyMetricsSummaryCard: View {
     ) {
         self.accentColor = accentColor
         self.healthMetrics = healthMetrics
+        self.loggedWeightKilograms = loggedWeightKilograms
         self.nutritionProteinGrams = nutritionProteinGrams
         self.nutritionCarbohydratesGrams = nutritionCarbohydratesGrams
         self.nutritionFatGrams = nutritionFatGrams
@@ -103,7 +109,7 @@ struct DailyMetricsSummaryCard: View {
             metricRow(
                 metric: .weight,
                 title: "Gewicht",
-                value: weightText(healthMetrics?.weightKilograms),
+                value: weightText(loggedWeightKilograms ?? healthMetrics?.weightKilograms),
                 systemImage: "scalemass",
                 color: .cyan
             )

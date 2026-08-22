@@ -123,6 +123,7 @@ struct NutritionView: View {
             )
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
+            .presentationBackground(Color(.systemBackground))
         }
     }
 

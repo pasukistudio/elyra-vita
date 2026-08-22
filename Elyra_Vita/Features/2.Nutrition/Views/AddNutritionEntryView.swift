@@ -16,6 +16,9 @@ struct AddNutritionEntryView: View {
     @Query(sort: \CustomFood.name)
     private var customFoods: [CustomFood]
 
+    @Query(sort: \NutritionEntry.date, order: .reverse)
+    private var nutritionEntries: [NutritionEntry]
+
     // MARK: - Eingaben
 
     let selectedDate: Date
@@ -54,6 +57,22 @@ struct AddNutritionEntryView: View {
         return localFoods + remoteFoods.filter { remote in
             !localFoods.contains(where: { $0.id == remote.id })
         }
+    }
+
+    private var recentlyUsedCustomFoods: [NutritionFood] {
+        var seenIDs = Set<String>()
+
+        let foods: [NutritionFood] = nutritionEntries.compactMap { entry in
+            guard entry.source == "custom",
+                  !entry.externalFoodID.isEmpty,
+                  seenIDs.insert(entry.externalFoodID).inserted else {
+                return nil
+            }
+
+            return customFoods.first { $0.nutritionFood.id == entry.externalFoodID }?.nutritionFood
+        }
+
+        return Array(foods.prefix(5))
     }
 
     private var parsedAmount: Double? {
@@ -111,33 +130,54 @@ struct AddNutritionEntryView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Lebensmittel") {
-                    HStack {
-                        TextField("Suchen", text: $searchText)
-                            .textInputAutocapitalization(.never)
+                if selectedFood == nil {
+                    Section {
+                        HStack {
+                            TextField("Suchen", text: $searchText)
+                                .textInputAutocapitalization(.never)
+
+                            Button {
+                                scannerPresented = true
+                            } label: {
+                                Image(systemName: "barcode.viewfinder")
+                                    .font(.title3)
+                                    .foregroundStyle(accentColor)
+                            }
+                            .accessibilityLabel("Barcode scannen")
+                        }
 
                         Button {
-                            scannerPresented = true
+                            customFoodSheetPresented = true
                         } label: {
-                            Image(systemName: "barcode.viewfinder")
-                                .font(.title3)
-                                .foregroundStyle(accentColor)
+                            Label("Eigenes Lebensmittel anlegen", systemImage: "plus.circle")
                         }
-                        .accessibilityLabel("Barcode scannen")
                     }
+                }
 
-                    Button {
-                        customFoodSheetPresented = true
-                    } label: {
-                        Label("Eigenes Lebensmittel anlegen", systemImage: "plus.circle")
+                if entryToEdit == nil,
+                   selectedFood == nil,
+                   searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                   !recentlyUsedCustomFoods.isEmpty {
+                    Section("Zuletzt verwendet") {
+                        ForEach(recentlyUsedCustomFoods) { food in
+                            Button {
+                                selectFood(food)
+                            } label: {
+                                foodRow(food)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
+                }
+
+                Section("Lebensmittel") {
 
                     if let selectedFood {
                         selectedFoodRow(selectedFood)
                     } else {
                         if isLoadingRemoteFoods {
                             HStack(spacing: 8) {
-                                ProgressView()
+                                SwiftUI.ProgressView()
                                 Text("Open Food Facts wird durchsucht …")
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
@@ -146,10 +186,7 @@ struct AddNutritionEntryView: View {
 
                         ForEach(filteredFoods) { food in
                             Button {
-                                self.selectedFood = food
-                                amountText = "100"
-                                selectedUnit = food.unit
-                                setNutritionFields(for: food, amount: 100, unit: food.unit)
+                                selectFood(food)
                             } label: {
                                 foodRow(food)
                             }
@@ -248,10 +285,7 @@ struct AddNutritionEntryView: View {
             }
             .sheet(isPresented: $customFoodSheetPresented) {
                 AddCustomFoodView { food in
-                    selectedFood = food
-                    amountText = "100"
-                    selectedUnit = food.unit
-                    setNutritionFields(for: food, amount: 100, unit: food.unit)
+                    selectFood(food)
                 }
                 .presentationDetents([.large])
                 .presentationBackground(Color(.systemBackground))
@@ -297,6 +331,14 @@ struct AddNutritionEntryView: View {
             }
             .font(.caption.weight(.semibold))
         }
+    }
+
+    private func selectFood(_ food: NutritionFood) {
+        selectedFood = food
+        searchText = ""
+        amountText = "100"
+        selectedUnit = food.unit
+        setNutritionFields(for: food, amount: 100, unit: food.unit)
     }
 
     private func nutrientField(_ title: String, text: Binding<String>, unit: String) -> some View {
@@ -356,10 +398,7 @@ struct AddNutritionEntryView: View {
                 return
             }
 
-            selectedFood = food
-            amountText = "100"
-            selectedUnit = food.unit
-            setNutritionFields(for: food, amount: 100, unit: food.unit)
+            selectFood(food)
         } catch {
             errorMessage = error.localizedDescription
         }
