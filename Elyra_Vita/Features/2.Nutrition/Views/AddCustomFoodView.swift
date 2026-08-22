@@ -29,10 +29,23 @@ struct AddCustomFoodView: View {
     @State private var fiber = ""
     @State private var saturatedFat = ""
     @State private var salt = ""
+    @State private var saveErrorMessage: String?
 
     private var canSave: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-            nutrientValues != nil
+            nutrientValues != nil &&
+            pieceWeightIsValid
+    }
+
+    private var pieceWeightValue: Double? {
+        let trimmedValue = pieceWeight.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedValue.isEmpty else { return nil }
+        return parseNumber(trimmedValue)
+    }
+
+    private var pieceWeightIsValid: Bool {
+        pieceWeight.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            (pieceWeightValue ?? -1) >= 0
     }
 
     private var nutrientValues: [Double]? {
@@ -84,6 +97,17 @@ struct AddCustomFoodView: View {
                         .disabled(!canSave)
                 }
             }
+            .alert(
+                "Lebensmittel konnte nicht gespeichert werden",
+                isPresented: Binding(
+                    get: { saveErrorMessage != nil },
+                    set: { if !$0 { saveErrorMessage = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) { saveErrorMessage = nil }
+            } message: {
+                Text(saveErrorMessage ?? "Unbekannter Speicherfehler.")
+            }
         }
     }
 
@@ -103,18 +127,21 @@ struct AddCustomFoodView: View {
     }
 
     private func parseNumber(_ value: String) -> Double? {
-        Double(value.replacingOccurrences(of: ",", with: "."))
+        guard let number = Double(value.replacingOccurrences(of: ",", with: ".")),
+              number.isFinite else { return nil }
+        return number
     }
 
     // MARK: - Speichern
 
     private func save() {
-        guard let values = nutrientValues else { return }
+        guard let values = nutrientValues,
+              pieceWeightIsValid else { return }
         let customFood = CustomFood(
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
             brand: brand,
             unit: unit,
-            pieceWeight: parseNumber(pieceWeight),
+            pieceWeight: pieceWeightValue,
             caloriesPer100: values[0],
             proteinPer100: values[1],
             carbohydratesPer100: values[2],
@@ -126,9 +153,14 @@ struct AddCustomFoodView: View {
         )
 
         modelContext.insert(customFood)
-        try? modelContext.save()
-        onSaved(customFood.nutritionFood)
-        dismiss()
+        do {
+            try modelContext.save()
+            onSaved(customFood.nutritionFood)
+            dismiss()
+        } catch {
+            modelContext.delete(customFood)
+            saveErrorMessage = error.localizedDescription
+        }
     }
 }
 

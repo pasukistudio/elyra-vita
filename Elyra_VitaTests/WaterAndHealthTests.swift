@@ -186,6 +186,31 @@ final class WaterAndHealthTests: XCTestCase {
         XCTAssertEqual(nutritionFood.saltPer100, 0.2)
     }
 
+    /// Prüft, dass ein eigenes Lebensmittel im SwiftData-Kontext gespeichert
+    /// und anschließend vollständig wieder geladen werden kann.
+    func testCustomFoodPersistsAndNormalizesValues() throws {
+        let container = try makeInMemoryContainer()
+        let context = container.mainContext
+        let food = CustomFood(
+            name: "Negativschutz",
+            pieceWeight: -20,
+            caloriesPer100: -10,
+            proteinPer100: 4
+        )
+
+        context.insert(food)
+        try context.save()
+
+        let fetchedFoods = try context.fetch(FetchDescriptor<CustomFood>())
+        let fetchedFood = try XCTUnwrap(fetchedFoods.first)
+
+        XCTAssertEqual(fetchedFood.name, "Negativschutz")
+        XCTAssertEqual(fetchedFood.pieceWeight, 0)
+        XCTAssertEqual(fetchedFood.caloriesPer100, 0)
+        XCTAssertEqual(fetchedFood.proteinPer100, 4)
+        XCTAssertEqual(fetchedFood.updatedAt, fetchedFood.createdAt)
+    }
+
     /// Prüft, dass Open Food Facts alle verfügbaren Nährwerte in das lokale
     /// Lebensmittelmodell übernimmt und die Barcode-Quelle erhalten bleibt.
     func testOpenFoodFactsProductMapsNutritionValues() async throws {
