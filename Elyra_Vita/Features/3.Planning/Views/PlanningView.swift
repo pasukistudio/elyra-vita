@@ -88,8 +88,11 @@ struct PlanningView: View {
                             Button {
                                 showingNewTodoList = true
                             } label: {
-                                Label("Neue To-do-Liste anlegen", systemImage: "plus")
-                                    .frame(maxWidth: .infinity)
+                                HStack(spacing: 8) {
+                                    Image(systemName: "plus")
+                                    Text("Neue To-do-Liste anlegen")
+                                }
+                                .frame(maxWidth: .infinity, alignment: .center)
                             }
                             .buttonStyle(.borderedProminent)
                             .controlSize(.large)
