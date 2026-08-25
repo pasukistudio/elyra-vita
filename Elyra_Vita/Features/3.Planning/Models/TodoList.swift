@@ -39,6 +39,7 @@ final class TodoTask {
     var note: String = ""
     var dueDate: Date?
     var priority: Int = 1
+    var sortOrder: Int = 0
     var isCompleted: Bool = false
     var completedAt: Date?
     var createdAt: Date = Date()
@@ -49,7 +50,8 @@ final class TodoTask {
         title: String,
         note: String = "",
         dueDate: Date? = nil,
-        priority: Int = 1
+        priority: Int = 1,
+        sortOrder: Int = 0
     ) {
         let timestamp = Date()
         id = UUID()
@@ -58,6 +60,7 @@ final class TodoTask {
         self.note = note
         self.dueDate = dueDate
         self.priority = min(max(priority, 0), 2)
+        self.sortOrder = sortOrder
         createdAt = timestamp
         updatedAt = timestamp
     }

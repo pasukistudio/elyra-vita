@@ -16,6 +16,8 @@ struct PlanningView: View {
     @Binding private var showingNewTodoList: Bool
     @State private var editingList: ShoppingList?
     @State private var editingTodoList: TodoList?
+    @State private var pendingShoppingListDeletion: ShoppingList?
+    @State private var pendingTodoListDeletion: TodoList?
 
     init(
         showingNewList: Binding<Bool> = .constant(false),
@@ -65,9 +67,17 @@ struct PlanningView: View {
                                 }
                                 .tint(.blue)
                                 Button(role: .destructive) {
-                                    delete(list)
+                                    pendingShoppingListDeletion = list
                                 } label: {
                                     Label("Löschen", systemImage: "trash")
+                                }
+                            }
+                            .contextMenu {
+                                Button("Bearbeiten", systemImage: "pencil") {
+                                    editingList = list
+                                }
+                                Button("Löschen", systemImage: "trash", role: .destructive) {
+                                    pendingShoppingListDeletion = list
                                 }
                             }
                         }
@@ -113,7 +123,7 @@ struct PlanningView: View {
                                 }
                                 .tint(.blue)
                                 Button(role: .destructive) {
-                                    delete(list)
+                                    pendingTodoListDeletion = list
                                 } label: {
                                     Label("Löschen", systemImage: "trash")
                                 }
@@ -123,7 +133,7 @@ struct PlanningView: View {
                                     editingTodoList = list
                                 }
                                 Button("Löschen", systemImage: "trash", role: .destructive) {
-                                    delete(list)
+                                    pendingTodoListDeletion = list
                                 }
                             }
                         }
@@ -162,6 +172,28 @@ struct PlanningView: View {
                 TodoListEditorView(list: list)
                     .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
+            }
+            .alert("Einkaufsliste löschen?", isPresented: shoppingListDeletionAlertIsPresented, presenting: pendingShoppingListDeletion) { list in
+                Button("Löschen", role: .destructive) {
+                    delete(list)
+                    pendingShoppingListDeletion = nil
+                }
+                Button("Abbrechen", role: .cancel) {
+                    pendingShoppingListDeletion = nil
+                }
+            } message: { list in
+                Text("\"\(list.name)\" und alle enthaltenen Artikel werden dauerhaft entfernt.")
+            }
+            .alert("To-do-Liste löschen?", isPresented: todoListDeletionAlertIsPresented, presenting: pendingTodoListDeletion) { list in
+                Button("Löschen", role: .destructive) {
+                    delete(list)
+                    pendingTodoListDeletion = nil
+                }
+                Button("Abbrechen", role: .cancel) {
+                    pendingTodoListDeletion = nil
+                }
+            } message: { list in
+                Text("\"\(list.name)\" und alle enthaltenen Aufgaben werden dauerhaft entfernt.")
             }
         }
         .appBackground()
@@ -231,5 +263,19 @@ struct PlanningView: View {
         }
         modelContext.delete(list)
         try? modelContext.save()
+    }
+
+    private var todoListDeletionAlertIsPresented: Binding<Bool> {
+        Binding(
+            get: { pendingTodoListDeletion != nil },
+            set: { if !$0 { pendingTodoListDeletion = nil } }
+        )
+    }
+
+    private var shoppingListDeletionAlertIsPresented: Binding<Bool> {
+        Binding(
+            get: { pendingShoppingListDeletion != nil },
+            set: { if !$0 { pendingShoppingListDeletion = nil } }
+        )
     }
 }

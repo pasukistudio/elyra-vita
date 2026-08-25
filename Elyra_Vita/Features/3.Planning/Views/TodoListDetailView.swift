@@ -8,6 +8,7 @@ struct TodoListDetailView: View {
     @State private var editingTask: TodoTask?
     @State private var inlineTitle = ""
     @State private var completedTasksExpanded = true
+    @State private var pendingTaskDeletion: TodoTask?
     @FocusState private var inlineTitleFocused: Bool
 
     let list: TodoList
@@ -29,11 +30,17 @@ struct TodoListDetailView: View {
                 case (nil, _?):
                     return false
                 case (nil, nil):
-                    return first.createdAt < second.createdAt
+                    return first.sortOrder == second.sortOrder
+                        ? first.createdAt < second.createdAt
+                        : first.sortOrder < second.sortOrder
                 }
             }
     }
-    private var completedTasks: [TodoTask] { tasks.filter(\.isCompleted) }
+    private var completedTasks: [TodoTask] {
+        tasks
+            .filter(\.isCompleted)
+            .sorted { ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast) }
+    }
 
     var body: some View {
         List {
@@ -50,6 +57,7 @@ struct TodoListDetailView: View {
                     ForEach(openTasks) { task in
                         taskRow(task)
                     }
+                    .onMove(perform: moveOpenTasks)
                 }
             }
 
@@ -79,6 +87,9 @@ struct TodoListDetailView: View {
         .listStyle(.insetGrouped)
         .navigationTitle(list.name)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                EditButton()
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     showingNewTask = true
@@ -96,6 +107,18 @@ struct TodoListDetailView: View {
             TodoTaskEditorView(list: list, task: task)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
+        }
+        .alert("Aufgabe löschen?", isPresented: deletionAlertIsPresented, presenting: pendingTaskDeletion) { task in
+            Button("Löschen", role: .destructive) {
+                modelContext.delete(task)
+                try? modelContext.save()
+                pendingTaskDeletion = nil
+            }
+            Button("Abbrechen", role: .cancel) {
+                pendingTaskDeletion = nil
+            }
+        } message: { task in
+            Text("\"\(task.title)\" wird dauerhaft aus dieser Liste entfernt.")
         }
     }
 
@@ -154,13 +177,18 @@ struct TodoListDetailView: View {
                         .lineLimit(1)
                 }
                 if let dueDate = task.dueDate, !task.isCompleted {
+                    let isOverdue = dueDate < Calendar.current.startOfDay(for: .now)
                     Label {
-                        Text(dueDate, style: .date)
+                        if isOverdue {
+                            Text("Überfällig")
+                        } else {
+                            Text(dueDate, style: .date)
+                        }
                     } icon: {
-                        Image(systemName: "calendar")
+                        Image(systemName: isOverdue ? "exclamationmark.triangle.fill" : "calendar")
                     }
-                        .font(.caption2)
-                        .foregroundStyle(dueDate < Calendar.current.startOfDay(for: .now) ? .red : .secondary)
+                    .font(.caption2.weight(isOverdue ? .semibold : .regular))
+                    .foregroundStyle(isOverdue ? .red : .secondary)
                 }
             }
 
@@ -173,8 +201,7 @@ struct TodoListDetailView: View {
             Button("Bearbeiten", systemImage: "pencil") { editingTask = task }
                 .tint(.blue)
             Button(role: .destructive) {
-                modelContext.delete(task)
-                try? modelContext.save()
+                pendingTaskDeletion = task
             } label: {
                 Label("Löschen", systemImage: "trash")
             }
@@ -192,10 +219,27 @@ struct TodoListDetailView: View {
                 try? modelContext.save()
             }
             Button("Löschen", systemImage: "trash", role: .destructive) {
-                modelContext.delete(task)
-                try? modelContext.save()
+                pendingTaskDeletion = task
             }
         }
+    }
+
+    private var deletionAlertIsPresented: Binding<Bool> {
+        Binding(
+            get: { pendingTaskDeletion != nil },
+            set: { if !$0 { pendingTaskDeletion = nil } }
+        )
+    }
+
+    private func moveOpenTasks(from source: IndexSet, to destination: Int) {
+        var reordered = openTasks
+        reordered.move(fromOffsets: source, toOffset: destination)
+        for (index, task) in reordered.enumerated() {
+            task.sortOrder = index
+            task.updatedAt = .now
+        }
+        list.updatedAt = .now
+        try? modelContext.save()
     }
 
     @ViewBuilder
