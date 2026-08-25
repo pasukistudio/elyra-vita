@@ -118,6 +118,14 @@ struct PlanningView: View {
                                     Label("Löschen", systemImage: "trash")
                                 }
                             }
+                            .contextMenu {
+                                Button("Bearbeiten", systemImage: "pencil") {
+                                    editingTodoList = list
+                                }
+                                Button("Löschen", systemImage: "trash", role: .destructive) {
+                                    delete(list)
+                                }
+                            }
                         }
                     }
                 } header: {

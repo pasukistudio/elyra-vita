@@ -7,6 +7,7 @@ struct TodoListDetailView: View {
     @State private var showingNewTask = false
     @State private var editingTask: TodoTask?
     @State private var inlineTitle = ""
+    @State private var completedTasksExpanded = true
     @FocusState private var inlineTitleFocused: Bool
 
     let list: TodoList
@@ -53,10 +54,25 @@ struct TodoListDetailView: View {
             }
 
             if !completedTasks.isEmpty {
-                Section("Erledigt (\(completedTasks.count))") {
-                    ForEach(completedTasks) { task in
-                        taskRow(task)
+                Section {
+                    if completedTasksExpanded {
+                        ForEach(completedTasks) { task in
+                            taskRow(task)
+                        }
                     }
+                } header: {
+                    Button {
+                        withAnimation {
+                            completedTasksExpanded.toggle()
+                        }
+                    } label: {
+                        HStack {
+                            Text("Erledigt (\(completedTasks.count))")
+                            Spacer()
+                            Image(systemName: completedTasksExpanded ? "chevron.up" : "chevron.down")
+                        }
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -161,6 +177,23 @@ struct TodoListDetailView: View {
                 try? modelContext.save()
             } label: {
                 Label("Löschen", systemImage: "trash")
+            }
+        }
+        .contextMenu {
+            Button("Bearbeiten", systemImage: "pencil") {
+                editingTask = task
+            }
+            Button(
+                task.isCompleted ? "Als offen markieren" : "Als erledigt markieren",
+                systemImage: task.isCompleted ? "arrow.uturn.backward" : "checkmark"
+            ) {
+                task.update(isCompleted: !task.isCompleted)
+                list.updatedAt = .now
+                try? modelContext.save()
+            }
+            Button("Löschen", systemImage: "trash", role: .destructive) {
+                modelContext.delete(task)
+                try? modelContext.save()
             }
         }
     }
