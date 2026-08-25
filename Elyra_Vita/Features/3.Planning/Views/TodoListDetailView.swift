@@ -6,6 +6,8 @@ struct TodoListDetailView: View {
     @Query private var allTasks: [TodoTask]
     @State private var showingNewTask = false
     @State private var editingTask: TodoTask?
+    @State private var inlineTitle = ""
+    @FocusState private var inlineTitleFocused: Bool
 
     let list: TodoList
 
@@ -34,29 +36,26 @@ struct TodoListDetailView: View {
 
     var body: some View {
         List {
-            if openTasks.isEmpty && completedTasks.isEmpty {
-                ContentUnavailableView(
-                    "Noch keine Aufgaben",
-                    systemImage: "checklist",
-                    description: Text("Lege deine erste Aufgabe für diese Liste an.")
-                )
-            } else {
-                Section("Offen") {
-                    if openTasks.isEmpty {
-                        Text("Keine offenen Aufgaben")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(openTasks) { task in
-                            taskRow(task)
-                        }
+            Section("Offen (\(openTasks.count))") {
+                inlineTaskEntry
+
+                if openTasks.isEmpty {
+                    ContentUnavailableView(
+                        "Noch keine Aufgaben",
+                        systemImage: "checklist",
+                        description: Text("Lege deine erste Aufgabe direkt oben an.")
+                    )
+                } else {
+                    ForEach(openTasks) { task in
+                        taskRow(task)
                     }
                 }
+            }
 
-                if !completedTasks.isEmpty {
-                    Section("Erledigt") {
-                        ForEach(completedTasks) { task in
-                            taskRow(task)
-                        }
+            if !completedTasks.isEmpty {
+                Section("Erledigt (\(completedTasks.count))") {
+                    ForEach(completedTasks) { task in
+                        taskRow(task)
                     }
                 }
             }
@@ -82,6 +81,37 @@ struct TodoListDetailView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
+    }
+
+    private var inlineTaskEntry: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "plus.circle.fill")
+                .foregroundStyle(.tint)
+
+            TextField("Aufgabe hinzufügen", text: $inlineTitle)
+                .focused($inlineTitleFocused)
+                .submitLabel(.done)
+                .onSubmit(addInlineTask)
+
+            if !inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Button("Hinzufügen", systemImage: "arrow.up.circle.fill", action: addInlineTask)
+                    .labelStyle(.iconOnly)
+                    .foregroundStyle(.tint)
+                    .accessibilityLabel("Aufgabe hinzufügen")
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func addInlineTask() {
+        let trimmedTitle = inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else { return }
+
+        modelContext.insert(TodoTask(listID: list.id, title: trimmedTitle))
+        list.updatedAt = .now
+        try? modelContext.save()
+        inlineTitle = ""
+        inlineTitleFocused = true
     }
 
     private func taskRow(_ task: TodoTask) -> some View {
