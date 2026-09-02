@@ -8,6 +8,9 @@ struct OverviewView: View {
 
     // MARK: - Daten
 
+    /// Ermöglicht einen erneuten HealthKit-Ladevorgang nach dem App-Wechsel.
+    @Environment(\.scenePhase) private var scenePhase
+
     /// Das Datum, für das die Übersicht den Wasserverbrauch zeigt.
     let selectedDate: Date
 
@@ -145,6 +148,15 @@ struct OverviewView: View {
         .listStyle(.insetGrouped)
         .task(id: selectedDate) {
             await loadHealthMetrics()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else { return }
+
+            // HealthKit kann während der Hintergrundphase neue Werte erhalten.
+            // Beim Zurückkehren werden diese Werte deshalb erneut gelesen.
+            Task {
+                await loadHealthMetrics()
+            }
         }
     }
 
