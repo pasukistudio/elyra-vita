@@ -15,6 +15,7 @@ struct HealthTrendView: View {
     // MARK: - Abhängigkeiten und Zustand
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
 
     @Query(sort: \WaterEntry.date, order: .forward)
     private var waterEntries: [WaterEntry]
@@ -85,6 +86,15 @@ struct HealthTrendView: View {
         }
         .task(id: selectedRange) {
             await loadPoints()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else { return }
+
+            // Neue HealthKit-Werte können außerhalb der App geschrieben werden.
+            // Beim Zurückkehren in den Vordergrund wird der Verlauf aktualisiert.
+            Task {
+                await loadPoints()
+            }
         }
         .overlay {
             if isLoading {
