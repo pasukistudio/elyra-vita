@@ -3,6 +3,10 @@ import SwiftData
 import OSLog
 import PasukiUI
 
+extension Notification.Name {
+    static let persistenceError = Notification.Name("ElyraVita.PersistenceError")
+}
+
 @MainActor
 enum PersistenceErrorReporter {
     @discardableResult
@@ -11,9 +15,12 @@ enum PersistenceErrorReporter {
             try context.save()
             return true
         } catch {
+            context.rollback()
+            let message = error.localizedDescription
             Logger(subsystem: "de.pasukistudio.elyra-vita", category: "Persistence")
-                .error("\(operation, privacy: .public) fehlgeschlagen: \(error.localizedDescription, privacy: .public)")
-            onError?(error.localizedDescription)
+                .error("\(operation, privacy: .public) fehlgeschlagen: \(message, privacy: .public)")
+            onError?(message)
+            NotificationCenter.default.post(name: .persistenceError, object: message)
             return false
         }
     }
@@ -67,6 +74,7 @@ struct ContentView: View {
     /// Steuert das Anlegen einer To-do-Liste aus der Planning-Toolbar.
     @State private var showingNewTodoList = false
     @State private var showingNewHabit = false
+    @State private var persistenceErrorMessage: String?
 
     /// Steuert die Navigation zu einem einzelnen Gesundheitstrend.
     @State private var selectedHealthMetric: HealthTrendMetric?
@@ -143,6 +151,21 @@ struct ContentView: View {
             }
             .appBackground()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .persistenceError)) { notification in
+            persistenceErrorMessage = notification.object as? String
+        }
+        .alert("Änderung konnte nicht gespeichert werden", isPresented: persistenceErrorPresented) {
+            Button("OK", role: .cancel) { persistenceErrorMessage = nil }
+        } message: {
+            Text(persistenceErrorMessage ?? "Bitte versuche es erneut.")
+        }
+    }
+
+    private var persistenceErrorPresented: Binding<Bool> {
+        Binding(
+            get: { persistenceErrorMessage != nil },
+            set: { if !$0 { persistenceErrorMessage = nil } }
+        )
     }
 
     // MARK: - Gemeinsame Toolbar
@@ -357,11 +380,7 @@ struct ContentView: View {
 
         modelContext.insert(WaterEntry(date: entryDate, amount: amount))
 
-        do {
-            try modelContext.save()
-        } catch {
-            logger.error("Wassereintrag konnte nicht gespeichert werden: \(error.localizedDescription, privacy: .public)")
-        }
+        PersistenceErrorReporter.save(modelContext, operation: "Wassereintrag speichern")
     }
 
     // MARK: - Erscheinungsbild

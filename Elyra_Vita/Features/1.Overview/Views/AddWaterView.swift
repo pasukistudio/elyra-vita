@@ -314,6 +314,7 @@ struct AddWaterView: View {
             customAmountText = ""
             customAmountFocused = false
         } catch {
+            modelContext.rollback()
             logger.error("Wassereintrag konnte nicht aktualisiert werden: \(error.localizedDescription)")
             deleteErrorMessage = "Der Wassereintrag konnte nicht aktualisiert werden."
         }
@@ -333,6 +334,7 @@ struct AddWaterView: View {
         do {
             try modelContext.save()
         } catch {
+            modelContext.rollback()
             logger.error(
                 "Wassereintrag konnte nicht gelöscht werden: \(error.localizedDescription)"
             )

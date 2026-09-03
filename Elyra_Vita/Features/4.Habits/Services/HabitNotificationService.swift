@@ -4,6 +4,11 @@ import UserNotifications
 
 @MainActor
 enum HabitNotificationService {
+    struct ScheduleResult {
+        let scheduledCount: Int
+        let skippedCount: Int
+        let failedCount: Int
+    }
     private static var schedulingGeneration = 0
     private static let logger = Logger(subsystem: "de.pasukistudio.elyra-vita", category: "HabitNotifications")
 
@@ -11,12 +16,12 @@ enum HabitNotificationService {
         (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])) ?? false
     }
 
-    static func schedule(for habits: [Habit], completions: [HabitCompletion] = [], from startDate: Date = .now) async {
+    static func schedule(for habits: [Habit], completions: [HabitCompletion] = [], from startDate: Date = .now) async -> ScheduleResult {
         schedulingGeneration += 1
         let generation = schedulingGeneration
         let center = UNUserNotificationCenter.current()
         let existingRequests = await center.pendingNotificationRequests()
-        guard generation == schedulingGeneration else { return }
+        guard generation == schedulingGeneration else { return ScheduleResult(scheduledCount: 0, skippedCount: 0, failedCount: 0) }
         let habitRequestIDs = existingRequests.map(\.identifier).filter { $0.hasPrefix("habit-") }
         center.removePendingNotificationRequests(withIdentifiers: habitRequestIDs)
         let nonHabitRequestCount = existingRequests.count - habitRequestIDs.count
@@ -37,13 +42,21 @@ enum HabitNotificationService {
         }
 
         let availableSlots = max(0, 64 - nonHabitRequestCount)
-        for candidate in requests.sorted(by: { $0.date < $1.date }).prefix(availableSlots) {
-            guard generation == schedulingGeneration else { return }
+        let candidates = requests.sorted(by: { $0.date < $1.date })
+        var failedCount = 0
+        for candidate in candidates.prefix(availableSlots) {
+            guard generation == schedulingGeneration else { return ScheduleResult(scheduledCount: 0, skippedCount: 0, failedCount: failedCount) }
             do {
                 try await center.add(candidate.request)
             } catch {
+                failedCount += 1
                 logger.error("Notification konnte nicht geplant werden: \(error.localizedDescription, privacy: .public)")
             }
         }
+        return ScheduleResult(
+            scheduledCount: max(0, min(candidates.count, availableSlots) - failedCount),
+            skippedCount: max(0, candidates.count - availableSlots),
+            failedCount: failedCount
+        )
     }
 }

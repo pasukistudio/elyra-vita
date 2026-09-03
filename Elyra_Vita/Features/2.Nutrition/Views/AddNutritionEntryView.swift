@@ -145,12 +145,12 @@ struct AddNutritionEntryView: View {
             baseAmount: 1
         )]
 
-        if selectedFood.unit == "piece" || pieceWeight != nil {
+        if let pieceWeight, pieceWeight > 0 {
             options.append(NutritionUnitOption(
                 id: "piece",
                 title: "Stück",
                 symbol: "Stück",
-                baseAmount: pieceWeight ?? 0
+                baseAmount: pieceWeight
             ))
         }
 

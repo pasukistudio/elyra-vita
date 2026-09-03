@@ -116,13 +116,13 @@ struct NutritionFood: Identifiable, Hashable {
             )
         ]
 
-        if unit == "piece" || pieceWeight != nil {
+        if let pieceWeight, pieceWeight > 0 {
             options.append(
                 NutritionUnitOption(
                     id: "piece",
                     title: "Stück",
                     symbol: "Stück",
-                    baseAmount: pieceWeight ?? 0
+                    baseAmount: pieceWeight
                 )
             )
         }

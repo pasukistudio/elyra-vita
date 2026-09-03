@@ -10,6 +10,18 @@ struct HabitsView: View {
     @State private var editingHabit: Habit?
     @State private var deletingHabit: Habit?
     @State private var saveErrorMessage: String?
+    @State private var notificationMessage: String?
+
+    init(showingNewHabit: Binding<Bool>) {
+        _showingNewHabit = showingNewHabit
+        let calendar = Calendar.current
+        let monthStart = calendar.dateInterval(of: .month, for: .now)?.start ?? .now
+        let rangeStart = calendar.date(byAdding: .month, value: -2, to: monthStart) ?? monthStart
+        let rangeEnd = calendar.date(byAdding: .month, value: 3, to: monthStart) ?? .now
+        _completions = Query(filter: #Predicate<HabitCompletion> { completion in
+            completion.day >= rangeStart && completion.day < rangeEnd
+        })
+    }
 
     private var activeHabits: [Habit] { habits.filter { !$0.isArchived } }
     private var selectedDate: Date { Date() }
@@ -20,6 +32,10 @@ struct HabitsView: View {
     }
     private func completionDays(for habit: Habit) -> [Date] { completionDaysByHabit[habit.id] ?? [] }
     private var dueHabits: [Habit] { activeHabits.filter { $0.isDue(on: selectedDate, completionDays: completionDays(for: $0)) } }
+    private var upcomingHabits: [Habit] {
+        let dueHabitIDs = Set(dueHabits.map { $0.id })
+        return activeHabits.filter { !dueHabitIDs.contains($0.id) }
+    }
     private var progressHabits: [Habit] {
         activeHabits.filter { habit in
             switch habit.recurrence {
@@ -55,20 +71,8 @@ struct HabitsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 progressCard
-
-                if dueHabits.isEmpty {
-                    emptyState
-                } else {
-                    sectionTitle("Heute fällig", detail: "\(completedCount) von \(progressTotal) erledigt")
-                    habitList(dueHabits)
-                }
-
-                let dueHabitIDs = Set(dueHabits.map(\.id))
-                let upcomingHabits = activeHabits.filter { !dueHabitIDs.contains($0.id) }
-                if !upcomingHabits.isEmpty {
-                    sectionTitle("Weitere Gewohnheiten", detail: nil)
-                    habitList(upcomingHabits)
-                }
+                dueSection
+                upcomingSection
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
@@ -88,11 +92,8 @@ struct HabitsView: View {
         .alert("Gewohnheit löschen?", isPresented: deletingAlert, presenting: deletingHabit) { habit in
             Button("Löschen", role: .destructive) {
                 modelContext.delete(habit)
-                do {
-                    try modelContext.save()
+                if PersistenceErrorReporter.save(modelContext, operation: "Habit löschen") {
                     deletingHabit = nil
-                } catch {
-                    saveErrorMessage = error.localizedDescription
                 }
             }
             Button("Abbrechen", role: .cancel) { deletingHabit = nil }
@@ -102,7 +103,15 @@ struct HabitsView: View {
         } message: {
             Text(saveErrorMessage ?? "Bitte versuche es erneut.")
         }
-        .task { await rescheduleNotifications() }
+        .alert("Erinnerungen", isPresented: notificationPresented) {
+            Button("OK", role: .cancel) { notificationMessage = nil }
+        } message: {
+            Text(notificationMessage ?? "")
+        }
+        .task {
+            deduplicateCompletions()
+            await rescheduleNotifications()
+        }
         .onChange(of: habits.map(\.updatedAt)) { _, _ in Task { await rescheduleNotifications() } }
         .onChange(of: completions.map(\.updatedAt)) { _, _ in Task { await rescheduleNotifications() } }
     }
@@ -134,6 +143,24 @@ struct HabitsView: View {
                 .font(.subheadline).multilineTextAlignment(.center).foregroundStyle(.secondary)
             if activeHabits.isEmpty { Button("Gewohnheit anlegen") { showingNewHabit = true }.buttonStyle(.borderedProminent) }
         }.frame(maxWidth: .infinity).padding(.vertical, 28)
+    }
+
+    @ViewBuilder
+    private var dueSection: some View {
+        if dueHabits.isEmpty {
+            emptyState
+        } else {
+            sectionTitle("Heute fällig", detail: "\(completedCount) von \(progressTotal) erledigt")
+            habitList(dueHabits)
+        }
+    }
+
+    @ViewBuilder
+    private var upcomingSection: some View {
+        if !upcomingHabits.isEmpty {
+            sectionTitle("Weitere Gewohnheiten", detail: nil)
+            habitList(upcomingHabits)
+        }
     }
 
     private func sectionTitle(_ title: String, detail: String?) -> some View {
@@ -184,10 +211,24 @@ struct HabitsView: View {
         if let completion = completions.first(where: { $0.habitID == habit.id && Calendar.current.isDate($0.day, inSameDayAs: selectedDate) }) {
             modelContext.delete(completion)
         } else if !completed { modelContext.insert(HabitCompletion(habitID: habit.id, day: selectedDate)) }
-        do {
-            try modelContext.save()
-        } catch {
-            saveErrorMessage = error.localizedDescription
+        PersistenceErrorReporter.save(modelContext, operation: "Habit-Abschluss ändern") { message in
+            saveErrorMessage = message
+        }
+    }
+
+    private func deduplicateCompletions() {
+        var seen = Set<String>()
+        var removedAny = false
+        for completion in completions.sorted(by: { $0.completedAt < $1.completedAt }) {
+            let day = Calendar.current.startOfDay(for: completion.day).timeIntervalSince1970
+            let key = "\(completion.habitID.uuidString)-\(day)"
+            if !seen.insert(key).inserted {
+                modelContext.delete(completion)
+                removedAny = true
+            }
+        }
+        if removedAny {
+            PersistenceErrorReporter.save(modelContext, operation: "Doppelte Habit-Abschlüsse bereinigen")
         }
     }
 
@@ -200,8 +241,23 @@ struct HabitsView: View {
         )
     }
 
+    private var notificationPresented: Binding<Bool> {
+        Binding(
+            get: { notificationMessage != nil },
+            set: { if !$0 { notificationMessage = nil } }
+        )
+    }
+
     private func rescheduleNotifications() async {
-        guard await HabitNotificationService.requestPermission() else { return }
-        await HabitNotificationService.schedule(for: activeHabits, completions: completions)
+        guard await HabitNotificationService.requestPermission() else {
+            notificationMessage = "Benachrichtigungen sind deaktiviert. Aktiviere sie in den iPhone-Einstellungen, damit Habit-Erinnerungen angezeigt werden."
+            return
+        }
+        let result = await HabitNotificationService.schedule(for: activeHabits, completions: completions)
+        if result.failedCount > 0 {
+            notificationMessage = "\(result.failedCount) Erinnerung(en) konnten nicht geplant werden."
+        } else if result.skippedCount > 0 {
+            notificationMessage = "Es konnten nur \(result.scheduledCount) Erinnerungen geplant werden, da iOS maximal 64 ausstehende Benachrichtigungen zulässt."
+        }
     }
 }

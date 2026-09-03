@@ -122,6 +122,7 @@ struct HabitEditorView: View {
             try modelContext.save()
             dismiss()
         } catch {
+            modelContext.rollback()
             saveErrorMessage = error.localizedDescription
         }
     }

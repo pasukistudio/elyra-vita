@@ -253,14 +253,14 @@ final class HealthKitService {
         )
 
         return HealthMetrics(
-            steps: await steps,
-            walkingRunningDistanceKilometers: await distance,
-            activeEnergyKilocalories: await activeEnergy,
-            basalEnergyKilocalories: await basalEnergy,
-            weightKilograms: await weightOrNil(on: date),
-            proteinGrams: await protein,
-            carbohydratesGrams: await carbohydrates,
-            fatGrams: await fat
+            steps: try await steps,
+            walkingRunningDistanceKilometers: try await distance,
+            activeEnergyKilocalories: try await activeEnergy,
+            basalEnergyKilocalories: try await basalEnergy,
+            weightKilograms: try await weightOrNil(on: date),
+            proteinGrams: try await protein,
+            carbohydratesGrams: try await carbohydrates,
+            fatGrams: try await fat
         )
     }
 
@@ -358,14 +358,13 @@ final class HealthKitService {
         }
     }
 
-    /// Ein einzelner fehlender/gesperrter Datentyp darf die übrigen Werte nicht blockieren.
     private func valueOrNil(
         _ identifier: HKQuantityTypeIdentifier,
         unit: HKUnit,
         start: Date,
         end: Date
-    ) async -> Double? {
-        try? await cumulativeValue(
+    ) async throws -> Double? {
+        try await cumulativeValue(
             identifier,
             unit: unit,
             start: start,
@@ -452,9 +451,8 @@ final class HealthKitService {
         }
     }
 
-    /// Wandelt fehlende oder nicht freigegebene Gewichtsdaten in einen leeren Wert um.
-    private func weightOrNil(on date: Date) async -> Double? {
-        try? await latestWeight(on: date)
+    private func weightOrNil(on date: Date) async throws -> Double? {
+        try await latestWeight(on: date)
     }
 }
 
