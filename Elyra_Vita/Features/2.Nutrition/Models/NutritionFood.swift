@@ -71,26 +71,58 @@ struct NutritionFood: Identifiable, Hashable {
         self.barcode = barcode
     }
 
+    /// Rekonstruiert ein Lebensmittel aus dem gespeicherten Snapshot.
+    static func from(entry: NutritionEntry) -> NutritionFood {
+        let isPieceEntry = entry.unit == "piece" && entry.pieceWeight > 0
+        let amountFactor: Double
+        if isPieceEntry {
+            amountFactor = max(entry.amount, 1) * entry.pieceWeight / 100
+        } else if entry.unit == "g" || entry.unit == "ml" {
+            amountFactor = max(entry.amount, 1) / 100
+        } else {
+            amountFactor = 1
+        }
+
+        return NutritionFood(
+            id: entry.externalFoodID.isEmpty ? "entry-\(entry.foodName)-\(entry.date.timeIntervalSince1970)" : entry.externalFoodID,
+            name: entry.foodName,
+            brand: entry.brand,
+            unit: isPieceEntry ? "g" : entry.unit,
+            pieceWeight: isPieceEntry ? entry.pieceWeight : nil,
+            caloriesPer100: entry.calories / amountFactor,
+            proteinPer100: entry.proteinGrams / amountFactor,
+            carbohydratesPer100: entry.carbohydratesGrams / amountFactor,
+            fatPer100: entry.fatGrams / amountFactor,
+            sugarPer100: entry.sugarGrams / amountFactor,
+            fiberPer100: entry.fiberGrams / amountFactor,
+            saturatedFatPer100: entry.saturatedFatGrams / amountFactor,
+            saltPer100: entry.saltGrams / amountFactor,
+            source: entry.source,
+            barcode: entry.source == "openFoodFacts" ? entry.externalFoodID.replacingOccurrences(of: "off-", with: "") : nil
+        )
+    }
+
     // MARK: - Eingabeeinheiten
 
     /// Liefert die Basis- und – falls sinnvoll – eine Stückeinheit.
     var unitOptions: [NutritionUnitOption] {
+        let baseUnit = unit == "piece" ? "g" : unit
         var options = [
             NutritionUnitOption(
-                id: unit,
-                title: unit == "ml" ? "Milliliter" : "Gramm",
-                symbol: unit,
+                id: baseUnit,
+                title: baseUnit == "ml" ? "Milliliter" : "Gramm",
+                symbol: baseUnit,
                 baseAmount: 1
             )
         ]
 
-        if let pieceWeight {
+        if unit == "piece" || pieceWeight != nil {
             options.append(
                 NutritionUnitOption(
                     id: "piece",
                     title: "Stück",
                     symbol: "Stück",
-                    baseAmount: pieceWeight
+                    baseAmount: pieceWeight ?? 0
                 )
             )
         }

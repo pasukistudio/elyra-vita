@@ -12,8 +12,10 @@ struct PlanningView: View {
     @Query private var shoppingItems: [ShoppingListItem]
     @Query(sort: \TodoList.updatedAt, order: .reverse) private var todoLists: [TodoList]
     @Query private var todoTasks: [TodoTask]
+    @Query(sort: \Habit.updatedAt, order: .reverse) private var habits: [Habit]
     @Binding private var showingNewList: Bool
     @Binding private var showingNewTodoList: Bool
+    @Binding private var showingNewHabit: Bool
     @State private var editingList: ShoppingList?
     @State private var editingTodoList: TodoList?
     @State private var pendingShoppingListDeletion: ShoppingList?
@@ -21,15 +23,36 @@ struct PlanningView: View {
 
     init(
         showingNewList: Binding<Bool> = .constant(false),
-        showingNewTodoList: Binding<Bool> = .constant(false)
+        showingNewTodoList: Binding<Bool> = .constant(false),
+        showingNewHabit: Binding<Bool> = .constant(false)
     ) {
         self._showingNewList = showingNewList
         self._showingNewTodoList = showingNewTodoList
+        self._showingNewHabit = showingNewHabit
     }
 
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    NavigationLink {
+                        HabitsView(showingNewHabit: $showingNewHabit)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                                .frame(width: 32, height: 32)
+                                .background(.green.opacity(0.12), in: Circle())
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Gewohnheiten").font(.headline)
+                                Text(habits.isEmpty ? "Noch keine Gewohnheiten" : "\(habits.filter { !$0.isArchived }.count) aktive Gewohnheiten")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                        }.padding(.vertical, 4)
+                    }
+                } header: { Text("Gewohnheiten") }
+
                 Section {
                     if shoppingLists.isEmpty {
                         VStack(spacing: 14) {
@@ -229,7 +252,7 @@ struct PlanningView: View {
             modelContext.delete(item)
         }
         modelContext.delete(list)
-        try? modelContext.save()
+        PersistenceErrorReporter.save(modelContext, operation: "Einkaufsliste löschen")
     }
 
     private func todoListRow(_ list: TodoList) -> some View {
@@ -262,7 +285,7 @@ struct PlanningView: View {
             modelContext.delete(task)
         }
         modelContext.delete(list)
-        try? modelContext.save()
+        PersistenceErrorReporter.save(modelContext, operation: "To-do-Liste löschen")
     }
 
     private var todoListDeletionAlertIsPresented: Binding<Bool> {

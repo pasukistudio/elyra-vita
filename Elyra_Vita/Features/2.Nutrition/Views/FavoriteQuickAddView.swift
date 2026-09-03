@@ -30,7 +30,7 @@ struct FavoriteQuickAddView: View {
                 $0.formatted(.number.precision(.fractionLength(0...2)))
             } ?? ""
         )
-        _selectedUnit = State(initialValue: food.unit)
+        _selectedUnit = State(initialValue: food.unit == "piece" ? "g" : food.unit)
     }
 
     private var amount: Double? {
@@ -46,20 +46,28 @@ struct FavoriteQuickAddView: View {
         return value
     }
 
+    /// NutritionFood stores values per 100 g/ml. Older favorites may still
+    /// contain `piece` as their base unit, which is normalized for input.
+    private var baseUnit: String {
+        food.unit == "piece" ? "g" : food.unit
+    }
+
     private var unitOptions: [NutritionUnitOption] {
         var options = [NutritionUnitOption(
-            id: food.unit,
-            title: food.unit == "ml" ? "Milliliter" : "Gramm",
-            symbol: food.unit,
+            id: baseUnit,
+            title: displayUnitTitle(for: baseUnit),
+            symbol: displayUnitSymbol(for: baseUnit),
             baseAmount: 1
         )]
 
-        options.append(NutritionUnitOption(
-            id: "piece",
-            title: "Stück",
-            symbol: "Stück",
-            baseAmount: pieceWeight ?? 0
-        ))
+        if food.unit == "piece" || pieceWeight != nil {
+            options.append(NutritionUnitOption(
+                id: "piece",
+                title: "Stück",
+                symbol: "Stück",
+                baseAmount: pieceWeight ?? 0
+            ))
+        }
 
         return options
     }
@@ -122,8 +130,8 @@ struct FavoriteQuickAddView: View {
                         columns: [GridItem(.flexible()), GridItem(.flexible())],
                         spacing: 8
                     ) {
-                        quickAmountButton(100, unit: food.unit)
-                        quickAmountButton(200, unit: food.unit)
+                        quickAmountButton(100, unit: baseUnit)
+                        quickAmountButton(200, unit: baseUnit)
 
                         if pieceWeight != nil {
                             quickAmountButton(1, unit: "piece", title: "1 Stück")
@@ -131,7 +139,7 @@ struct FavoriteQuickAddView: View {
 
                         Button("Eigene Menge") {
                             amountText = ""
-                            selectedUnit = food.unit
+                            selectedUnit = baseUnit
                         }
                         .buttonStyle(.bordered)
                         .tint(accentColor)
@@ -151,11 +159,11 @@ struct FavoriteQuickAddView: View {
             .navigationBarTitleDisplayMode(.inline)
             .onChange(of: pieceWeightText) { _, _ in
                 if !unitOptions.contains(where: { $0.id == selectedUnit }) {
-                    selectedUnit = food.unit
+                    selectedUnit = baseUnit
                 }
             }
             .onChange(of: selectedUnit) { _, newUnit in
-                amountText = newUnit == food.unit ? "100" : "1"
+                amountText = newUnit == baseUnit ? "100" : "1"
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -192,7 +200,23 @@ struct FavoriteQuickAddView: View {
     }
 
     private func displayUnit(for unit: String) -> String {
-        unitOptions.first(where: { $0.id == unit })?.symbol ?? unit
+        unitOptions.first(where: { $0.id == unit })?.symbol ?? displayUnitSymbol(for: unit)
+    }
+
+    private func displayUnitTitle(for unit: String) -> String {
+        switch unit {
+        case "piece": return "Stück"
+        case "ml": return "Milliliter"
+        default: return "Gramm"
+        }
+    }
+
+    private func displayUnitSymbol(for unit: String) -> String {
+        switch unit {
+        case "piece": return "Stück"
+        case "ml": return "ml"
+        default: return "g"
+        }
     }
 
     private func save() {

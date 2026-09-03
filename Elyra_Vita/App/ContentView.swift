@@ -3,6 +3,22 @@ import SwiftData
 import OSLog
 import PasukiUI
 
+@MainActor
+enum PersistenceErrorReporter {
+    @discardableResult
+    static func save(_ context: ModelContext, operation: String, onError: ((String) -> Void)? = nil) -> Bool {
+        do {
+            try context.save()
+            return true
+        } catch {
+            Logger(subsystem: "de.pasukistudio.elyra-vita", category: "Persistence")
+                .error("\(operation, privacy: .public) fehlgeschlagen: \(error.localizedDescription, privacy: .public)")
+            onError?(error.localizedDescription)
+            return false
+        }
+    }
+}
+
 // MARK: - ContentView
 
 /// Zentrale Navigation der App mit gemeinsamer Tagesauswahl und Sheets.
@@ -50,6 +66,7 @@ struct ContentView: View {
 
     /// Steuert das Anlegen einer To-do-Liste aus der Planning-Toolbar.
     @State private var showingNewTodoList = false
+    @State private var showingNewHabit = false
 
     /// Steuert die Navigation zu einem einzelnen Gesundheitstrend.
     @State private var selectedHealthMetric: HealthTrendMetric?
@@ -169,6 +186,11 @@ struct ContentView: View {
                     } label: {
                         Label("Neue To-do-Liste", systemImage: "checklist")
                     }
+                    Button {
+                        showingNewHabit = true
+                    } label: {
+                        Label("Neue Gewohnheit", systemImage: "checkmark.circle")
+                    }
                 } label: {
                     Label("Neue Liste", systemImage: "plus")
                 }
@@ -251,7 +273,8 @@ struct ContentView: View {
     private var planning: some View {
         PlanningView(
             showingNewList: $showingNewShoppingList,
-            showingNewTodoList: $showingNewTodoList
+            showingNewTodoList: $showingNewTodoList,
+            showingNewHabit: $showingNewHabit
         )
             .tabItem {
                 Label(
@@ -400,7 +423,9 @@ struct ContentView: View {
                 ShoppingListItem.self,
                 ShoppingListItemHistory.self,
                 TodoList.self,
-                TodoTask.self
+                TodoTask.self,
+                Habit.self,
+                HabitCompletion.self
             ],
             inMemory: true
         )

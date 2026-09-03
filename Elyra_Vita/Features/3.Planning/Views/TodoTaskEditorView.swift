@@ -79,7 +79,8 @@ struct TodoTaskEditorView: View {
             )
             list.updatedAt = .now
         }
-        try? modelContext.save()
-        dismiss()
+        if PersistenceErrorReporter.save(modelContext, operation: "To-do speichern") {
+            dismiss()
+        }
     }
 }

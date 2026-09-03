@@ -128,8 +128,9 @@ struct ShoppingListItemEditorView: View {
 
         remember(trimmedName)
 
-        try? modelContext.save()
-        dismiss()
+        if PersistenceErrorReporter.save(modelContext, operation: "Einkaufsartikel speichern") {
+            dismiss()
+        }
     }
 
     private func remember(_ name: String) {
