@@ -14,7 +14,7 @@ enum HabitRecurrence: String, CaseIterable, Identifiable {
         case .daily: return "Täglich"
         case .weekly: return "Wöchentlich"
         case .monthly: return "Monatlich"
-        case .selectedDays: return "Individuelle Tage"
+        case .selectedDays: return "Bestimmte Wochentage"
         }
     }
 }
@@ -106,7 +106,7 @@ final class Habit {
         case .weekly: return "\(targetCount)× pro Woche"
         case .monthly: return "\(targetCount)× pro Monat"
         case .selectedDays:
-            let names = Calendar.current.shortWeekdaySymbols
+            let names = Calendar.current.shortStandaloneWeekdaySymbols
             return (1...7).compactMap { selectedWeekdaysMask & (1 << ($0 - 1)) != 0 ? names[$0 - 1] : nil }.joined(separator: ", ")
         }
     }
@@ -143,6 +143,92 @@ final class Habit {
         case .selectedDays:
             let weekday = calendar.component(.weekday, from: date)
             return selectedWeekdaysMask & (1 << (weekday - 1)) != 0
+        }
+    }
+
+    /// Liefert die aktuelle Serie passend zur Wiederholung des Habits.
+    /// Bei Wochen- und Monatszielen zählt eine Serie aus erfüllten Zeiträumen;
+    /// bei täglichen bzw. festen Tagen zählt jede geplante Erledigung.
+    func currentStreak(on date: Date = .now, calendar: Calendar = .current, completionDays: [Date] = []) -> Int {
+        guard !isArchived else { return 0 }
+
+        let completed = Set(completionDays.map { calendar.startOfDay(for: $0) })
+        let today = calendar.startOfDay(for: date)
+
+        switch recurrence {
+        case .daily:
+            var cursor = today
+            if !completed.contains(cursor) {
+                guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor),
+                      completed.contains(previous) else { return 0 }
+                cursor = previous
+            }
+
+            var streak = 0
+            while completed.contains(cursor) {
+                streak += 1
+                guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
+                cursor = previous
+            }
+            return streak
+
+        case .selectedDays:
+            func isScheduled(_ day: Date) -> Bool {
+                let weekday = calendar.component(.weekday, from: day)
+                return selectedWeekdaysMask & (1 << (weekday - 1)) != 0
+            }
+
+            var cursor = today
+            if !isScheduled(cursor) || !completed.contains(cursor) {
+                var foundPrevious = false
+                for _ in 0..<7 {
+                    guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
+                    cursor = previous
+                    if isScheduled(cursor) {
+                        foundPrevious = completed.contains(cursor)
+                        break
+                    }
+                }
+                guard foundPrevious else { return 0 }
+            }
+
+            var streak = 0
+            while isScheduled(cursor) && completed.contains(cursor) {
+                streak += 1
+                guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
+                cursor = previous
+                while !isScheduled(cursor) {
+                    guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { return streak }
+                    cursor = previous
+                }
+            }
+            return streak
+
+        case .weekly, .monthly:
+            let component: Calendar.Component = recurrence == .weekly ? .weekOfYear : .month
+            func periodIsComplete(_ periodDate: Date) -> Bool {
+                guard let interval = calendar.dateInterval(of: component, for: periodDate),
+                      let periodEnd = calendar.date(byAdding: component, value: 1, to: interval.start) else {
+                    return false
+                }
+                let count = completed.filter { $0 >= interval.start && $0 < periodEnd }.count
+                return count >= targetCount
+            }
+
+            var cursor = today
+            if !periodIsComplete(cursor) {
+                guard let previous = calendar.date(byAdding: component, value: -1, to: cursor),
+                      periodIsComplete(previous) else { return 0 }
+                cursor = previous
+            }
+
+            var streak = 0
+            while periodIsComplete(cursor) {
+                streak += 1
+                guard let previous = calendar.date(byAdding: component, value: -1, to: cursor) else { break }
+                cursor = previous
+            }
+            return streak
         }
     }
 }

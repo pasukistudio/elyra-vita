@@ -19,7 +19,7 @@ struct HabitEditorView: View {
         _name = State(initialValue: habit?.name ?? "")
         _note = State(initialValue: habit?.note ?? "")
         _recurrence = State(initialValue: habit?.recurrence ?? .daily)
-        _weekdaysMask = State(initialValue: habit?.selectedWeekdaysMask ?? 0b0000110)
+        _weekdaysMask = State(initialValue: habit?.selectedWeekdaysMask ?? 0)
         _targetCount = State(initialValue: habit?.targetCount ?? 1)
         _preset = State(initialValue: habit?.timePreset ?? .morning)
         _reminderTime = State(initialValue: Calendar.current.date(from: habit?.reminderDateComponents ?? HabitTimePreset.morning.defaultComponents) ?? .now)
@@ -101,7 +101,7 @@ struct HabitEditorView: View {
     private var recurrenceDescription: String {
         switch recurrence {
         case .daily: return "Jeden Tag"
-        case .weekly: return "An beliebigen Tagen, bis zu \(targetCount)× pro Woche"
+        case .weekly: return "An beliebigen Tagen, \(targetCount)× pro Woche"
         case .monthly: return "An beliebigen Tagen, bis zu \(targetCount)× pro Monat"
         case .selectedDays: return weekdaysMask == 0 ? "Bitte mindestens einen Tag auswählen" : "Nur an den markierten Tagen"
         }

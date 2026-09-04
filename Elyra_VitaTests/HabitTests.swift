@@ -45,6 +45,41 @@ final class HabitTests: XCTestCase {
         XCTAssertFalse(habit.isDue(on: .now, completionDays: [.now]))
     }
 
+    func testDailyHabitStreakCountsConsecutiveDays() throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let today = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 9, day: 4)))
+        let yesterday = try XCTUnwrap(calendar.date(byAdding: .day, value: -1, to: today))
+        let twoDaysAgo = try XCTUnwrap(calendar.date(byAdding: .day, value: -2, to: today))
+        let habit = Habit(name: "Lesen", recurrence: .daily)
+
+        XCTAssertEqual(habit.currentStreak(on: today, calendar: calendar, completionDays: [today, yesterday, twoDaysAgo]), 3)
+        XCTAssertEqual(habit.currentStreak(on: today, calendar: calendar, completionDays: [today, twoDaysAgo]), 1)
+    }
+
+    func testFixedWeekdayStreakCountsOnlyScheduledDays() throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let monday = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 8, day: 31)))
+        let wednesday = try XCTUnwrap(calendar.date(byAdding: .day, value: 2, to: monday))
+        let friday = try XCTUnwrap(calendar.date(byAdding: .day, value: 4, to: monday))
+        let habit = Habit(name: "Training", recurrence: .selectedDays)
+        habit.selectedWeekdaysMask = [monday, wednesday, friday].reduce(0) { mask, day in
+            mask | (1 << (calendar.component(.weekday, from: day) - 1))
+        }
+
+        XCTAssertEqual(habit.currentStreak(on: friday, calendar: calendar, completionDays: [monday, wednesday, friday]), 3)
+    }
+
+    func testWeeklyStreakRequiresCompletedTarget() throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let currentWeek = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 9, day: 4)))
+        let previousWeekDay = try XCTUnwrap(calendar.date(byAdding: .day, value: -7, to: currentWeek))
+        let previousWeekSecondDay = try XCTUnwrap(calendar.date(byAdding: .day, value: -6, to: currentWeek))
+        let habit = Habit(name: "Sport", recurrence: .weekly)
+        habit.targetCount = 2
+
+        XCTAssertEqual(habit.currentStreak(on: currentWeek, calendar: calendar, completionDays: [previousWeekDay, previousWeekSecondDay]), 1)
+    }
+
     func testHabitStoresReminderAndUpdateTimestamp() {
         let habit = Habit(name: "Wasser", recurrence: .daily)
         let originalUpdatedAt = habit.updatedAt

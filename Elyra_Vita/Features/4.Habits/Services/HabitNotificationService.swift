@@ -42,17 +42,50 @@ enum HabitNotificationService {
 
         for habit in habits where !habit.isArchived {
             let completionDays = completions.filter { $0.habitID == habit.id }.map(\.day)
-            for offset in 0..<30 {
-                guard let day = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: startDate)),
-                      shouldSchedule(habit: habit, on: day, from: startDate, calendar: calendar, completionDays: completionDays),
-                      let fireDate = calendar.date(bySettingHour: habit.reminderHour, minute: habit.reminderMinute, second: 0, of: day),
-                      fireDate > Date() else { continue }
-                let content = UNMutableNotificationContent()
-                content.title = "Gewohnheit fällig"
-                content.body = habit.name
-                content.sound = .default
-                let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
-                requests.append((fireDate, UNNotificationRequest(identifier: "habit-\(habit.id.uuidString)-\(offset)", content: content, trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false))))
+            let content = notificationContent(for: habit)
+
+            switch habit.recurrence {
+            case .daily:
+                let components = DateComponents(hour: habit.reminderHour, minute: habit.reminderMinute)
+                requests.append((.distantFuture, UNNotificationRequest(
+                    identifier: "habit-\(habit.id.uuidString)-daily",
+                    content: content,
+                    trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+                )))
+
+            case .selectedDays:
+                for weekday in 1...7 where habit.selectedWeekdaysMask & (1 << (weekday - 1)) != 0 {
+                    let components = DateComponents(
+                        hour: habit.reminderHour,
+                        minute: habit.reminderMinute,
+                        weekday: weekday
+                    )
+                    requests.append((.distantFuture, UNNotificationRequest(
+                        identifier: "habit-\(habit.id.uuidString)-weekday-\(weekday)",
+                        content: content,
+                        trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+                    )))
+                }
+
+            case .weekly, .monthly:
+                // Flexible Ziele brauchen keine 30 einzelnen Requests. Es
+                // reicht, die nächste geplante Erinnerung anzulegen. Nach dem
+                // Öffnen der App wird sie erneut für den nächsten Zeitraum
+                // berechnet.
+                for offset in 0..<370 {
+                    guard let day = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: startDate)),
+                          shouldSchedule(habit: habit, on: day, from: startDate, calendar: calendar, completionDays: completionDays),
+                          let fireDate = calendar.date(bySettingHour: habit.reminderHour, minute: habit.reminderMinute, second: 0, of: day),
+                          fireDate > Date() else { continue }
+
+                    let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
+                    requests.append((fireDate, UNNotificationRequest(
+                        identifier: "habit-\(habit.id.uuidString)-next",
+                        content: content,
+                        trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+                    )))
+                    break
+                }
             }
         }
 
@@ -73,6 +106,14 @@ enum HabitNotificationService {
             skippedCount: max(0, candidates.count - availableSlots),
             failedCount: failedCount
         )
+    }
+
+    private static func notificationContent(for habit: Habit) -> UNMutableNotificationContent {
+        let content = UNMutableNotificationContent()
+        content.title = "Gewohnheit fällig"
+        content.body = habit.name
+        content.sound = .default
+        return content
     }
 
     /// Verteilt Wochen-/Monatsziele gleichmäßig über den Zeitraum, statt an

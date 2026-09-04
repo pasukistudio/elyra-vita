@@ -20,45 +20,37 @@ struct HabitsView: View {
 
     private var activeHabits: [Habit] { habits.filter { !$0.isArchived } }
     private var selectedDate: Date { Date() }
+    private var dailyHabits: [Habit] { activeHabits.filter { $0.recurrence == .daily } }
+    private var weeklyHabits: [Habit] {
+        activeHabits.filter { $0.recurrence == .weekly || $0.recurrence == .selectedDays }
+    }
+    private var monthlyHabits: [Habit] { activeHabits.filter { $0.recurrence == .monthly } }
     private var completionDaysByHabit: [UUID: [Date]] {
         Dictionary(grouping: completions, by: \.habitID).mapValues { records in
             Array(Set(records.map { Calendar.current.startOfDay(for: $0.day) }))
         }
     }
     private func completionDays(for habit: Habit) -> [Date] { completionDaysByHabit[habit.id] ?? [] }
-    private var dueHabits: [Habit] { activeHabits.filter { $0.isDue(on: selectedDate, completionDays: completionDays(for: $0)) } }
-    private var upcomingHabits: [Habit] {
-        let dueHabitIDs = Set(dueHabits.map { $0.id })
-        return activeHabits.filter { !dueHabitIDs.contains($0.id) }
-    }
     private var progressHabits: [Habit] {
         activeHabits.filter { habit in
             switch habit.recurrence {
-            case .daily, .weekly, .monthly:
+            case .daily:
                 return true
             case .selectedDays:
                 return habit.isDue(on: selectedDate, completionDays: completionDays(for: habit))
+            case .weekly, .monthly:
+                // Wochen- und Monatsziele sind keine Tagesaufgaben. Sie
+                // dürfen deshalb den Tagesfortschritt nicht vergrößern.
+                return false
             }
         }
     }
     private var progressTotal: Int {
-        progressHabits.reduce(0) { total, habit in
-            total + ((habit.recurrence == .weekly || habit.recurrence == .monthly) ? habit.targetCount : 1)
-        }
+        progressHabits.count
     }
     private var completedCount: Int {
         progressHabits.reduce(0) { total, habit in
-            switch habit.recurrence {
-            case .weekly, .monthly:
-                let component: Calendar.Component = habit.recurrence == .weekly ? .weekOfYear : .month
-                guard let interval = Calendar.current.dateInterval(of: component, for: selectedDate),
-                      let periodEnd = Calendar.current.date(byAdding: component, value: 1, to: interval.start)
-                else { return total }
-                let count = completionDays(for: habit).filter { $0 >= interval.start && $0 < periodEnd }.count
-                return total + min(count, habit.targetCount)
-            case .daily, .selectedDays:
-                return total + (isCompleted(habit) ? 1 : 0)
-            }
+            total + (isCompleted(habit) ? 1 : 0)
         }
     }
 
@@ -66,8 +58,13 @@ struct HabitsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 progressCard
-                dueSection
-                upcomingSection
+                if activeHabits.isEmpty {
+                    emptyState
+                } else {
+                    habitSection("Täglich", systemImage: "sun.max.fill", habits: dailyHabits)
+                    habitSection("Wöchentlich", systemImage: "calendar.badge.clock", habits: weeklyHabits)
+                    habitSection("Monatlich", systemImage: "calendar", habits: monthlyHabits)
+                }
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
@@ -145,34 +142,28 @@ struct HabitsView: View {
         VStack(spacing: 12) {
             Image(systemName: "sun.max.fill").font(.system(size: 28)).foregroundStyle(.orange)
             Text("Heute ist nichts fällig").font(.headline)
-            Text(activeHabits.isEmpty ? "Lege deine erste Gewohnheit an." : "Genieße den freien Tag oder blättere zu einem anderen Datum.")
+            Text("Lege deine erste Gewohnheit an.")
                 .font(.subheadline).multilineTextAlignment(.center).foregroundStyle(.secondary)
             if activeHabits.isEmpty { Button("Gewohnheit anlegen") { showingNewHabit = true }.buttonStyle(.borderedProminent) }
         }.frame(maxWidth: .infinity).padding(.vertical, 28)
     }
 
     @ViewBuilder
-    private var dueSection: some View {
-        if dueHabits.isEmpty {
-            emptyState
-        } else {
-            sectionTitle("Heute fällig", detail: "\(completedCount) von \(progressTotal) erledigt")
-            habitList(dueHabits)
-        }
-    }
-
-    @ViewBuilder
-    private var upcomingSection: some View {
-        if !upcomingHabits.isEmpty {
-            sectionTitle("Weitere Gewohnheiten", detail: nil)
-            habitList(upcomingHabits)
-        }
-    }
-
-    private func sectionTitle(_ title: String, detail: String?) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(title).font(.title3.weight(.bold)); Spacer()
-            if let detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
+    private func habitSection(_ title: String, systemImage: String, habits: [Habit]) -> some View {
+        if !habits.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: systemImage)
+                        .foregroundStyle(.orange)
+                    Text(title)
+                        .font(.title3.weight(.bold))
+                    Spacer()
+                    Text("\(habits.count)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                habitList(habits)
+            }
         }
     }
 
@@ -187,6 +178,7 @@ struct HabitsView: View {
     private func habitCard(_ habit: Habit) -> some View {
         let due = habit.isDue(on: selectedDate, completionDays: completionDays(for: habit))
         let completed = isCompleted(habit)
+        let streak = habit.currentStreak(on: selectedDate, completionDays: completionDays(for: habit))
         return HStack(spacing: 14) {
             Button { toggle(habit, completed: completed) } label: {
                 Image(systemName: completed ? "checkmark.circle.fill" : "circle").font(.system(size: 28))
@@ -199,8 +191,16 @@ struct HabitsView: View {
                 }.font(.caption).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
-            Circle().fill(due ? Color.orange.opacity(0.14) : Color.secondary.opacity(0.10)).frame(width: 34, height: 34)
-                .overlay { Image(systemName: due ? "bell.fill" : "calendar").font(.caption).foregroundStyle(due ? .orange : .secondary) }
+            VStack(spacing: 5) {
+                Circle().fill(due ? Color.orange.opacity(0.14) : Color.secondary.opacity(0.10)).frame(width: 34, height: 34)
+                    .overlay { Image(systemName: due ? "bell.fill" : "calendar").font(.caption).foregroundStyle(due ? .orange : .secondary) }
+                if streak > 0 {
+                    Label("\(streak)", systemImage: "flame.fill")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.orange)
+                        .accessibilityLabel("\(streak) in Folge")
+                }
+            }
         }
         .padding(16).background(.background, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .contentShape(Rectangle()).contextMenu {
@@ -262,8 +262,6 @@ struct HabitsView: View {
         }
         if result.failedCount > 0 {
             notificationMessage = "\(result.failedCount) Erinnerung(en) konnten nicht geplant werden."
-        } else if result.skippedCount > 0 {
-            notificationMessage = "Es konnten nur \(result.scheduledCount) Erinnerungen geplant werden, da iOS maximal 64 ausstehende Benachrichtigungen zulässt."
         }
     }
 }

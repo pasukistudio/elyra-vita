@@ -21,6 +21,8 @@ struct PlanningView: View {
     @State private var pendingShoppingListDeletion: ShoppingList?
     @State private var pendingTodoListDeletion: TodoList?
 
+    private var activeHabits: [Habit] { habits.filter { !$0.isArchived } }
+
     init(
         showingNewList: Binding<Bool> = .constant(false),
         showingNewTodoList: Binding<Bool> = .constant(false),
@@ -35,48 +37,48 @@ struct PlanningView: View {
         NavigationStack {
             List {
                 Section {
-                    NavigationLink {
-                        HabitsView(showingNewHabit: $showingNewHabit)
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
-                                .frame(width: 32, height: 32)
-                                .background(.green.opacity(0.12), in: Circle())
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("Gewohnheiten").font(.headline)
-                                Text(habits.isEmpty ? "Noch keine Gewohnheiten" : "\(habits.filter { !$0.isArchived }.count) aktive Gewohnheiten")
-                                    .font(.caption).foregroundStyle(.secondary)
+                    if activeHabits.isEmpty {
+                        emptyPlanningCard(
+                            title: "Noch keine Gewohnheiten",
+                            description: "Lege deine erste Gewohnheit an.",
+                            actionTitle: "Gewohnheit anlegen",
+                            systemImage: "checkmark.circle.fill",
+                            color: .green
+                        ) {
+                            showingNewHabit = true
+                        }
+                    } else {
+                        NavigationLink {
+                            HabitsView(showingNewHabit: $showingNewHabit)
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                                    .frame(width: 32, height: 32)
+                                    .background(.green.opacity(0.12), in: Circle())
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Gewohnheiten").font(.headline)
+                                    Text("\(activeHabits.count) aktive Gewohnheiten")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
                             }
-                            Spacer()
-                        }.padding(.vertical, 4)
+                            .padding(.vertical, 4)
+                        }
                     }
                 } header: { Text("Gewohnheiten") }
 
                 Section {
                     if shoppingLists.isEmpty {
-                        VStack(spacing: 14) {
-                            ContentUnavailableView(
-                                "Noch keine Einkaufsliste",
-                                systemImage: "cart",
-                                description: Text("Lege eine Liste an, um deine Einkäufe zu planen.")
-                            )
-
-                            Button {
-                                showingNewList = true
-                            } label: {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "plus")
-                                    Text("Neue Einkaufsliste anlegen")
-                                }
-                                .frame(maxWidth: .infinity, alignment: .center)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.large)
-                            .frame(maxWidth: 280)
+                        emptyPlanningCard(
+                            title: "Noch keine Einkaufsliste",
+                            description: "Lege eine Liste an, um deine Einkäufe zu planen.",
+                            actionTitle: "Einkaufsliste anlegen",
+                            systemImage: "cart.fill",
+                            color: .blue
+                        ) {
+                            showingNewList = true
                         }
-                        .frame(maxWidth: .infinity)
-                        .listRowBackground(Color.clear)
                     } else {
                         ForEach(shoppingLists) { list in
                             NavigationLink {
@@ -111,28 +113,15 @@ struct PlanningView: View {
 
                 Section {
                     if todoLists.isEmpty {
-                        VStack(spacing: 12) {
-                            ContentUnavailableView(
-                                "Noch keine To-do-Liste",
-                                systemImage: "checklist",
-                                description: Text("Lege eine Liste für deine Aufgaben an.")
-                            )
-
-                            Button {
-                                showingNewTodoList = true
-                            } label: {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "plus")
-                                    Text("Neue To-do-Liste anlegen")
-                                }
-                                .frame(maxWidth: .infinity, alignment: .center)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.large)
-                            .frame(maxWidth: 280)
+                        emptyPlanningCard(
+                            title: "Noch keine To-do-Liste",
+                            description: "Lege eine Liste für deine Aufgaben an.",
+                            actionTitle: "To-do-Liste anlegen",
+                            systemImage: "checklist",
+                            color: .purple
+                        ) {
+                            showingNewTodoList = true
                         }
-                        .frame(maxWidth: .infinity)
-                        .listRowBackground(Color.clear)
                     } else {
                         ForEach(todoLists) { list in
                             NavigationLink {
@@ -220,6 +209,44 @@ struct PlanningView: View {
             }
         }
         .appBackground()
+    }
+
+    private func emptyPlanningCard(
+        title: String,
+        description: String,
+        actionTitle: String,
+        systemImage: String,
+        color: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        VStack(spacing: 14) {
+            Image(systemName: systemImage)
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundStyle(color)
+                .frame(width: 58, height: 58)
+                .background(color.opacity(0.12), in: Circle())
+
+            VStack(spacing: 5) {
+                Text(title)
+                    .font(.headline)
+                Text(description)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button(action: action) {
+                Label(actionTitle, systemImage: "plus")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(color)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(20)
+        .background(.background, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+        .listRowBackground(Color.clear)
     }
 
     private func listRow(_ list: ShoppingList) -> some View {
