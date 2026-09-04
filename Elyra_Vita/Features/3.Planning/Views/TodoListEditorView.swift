@@ -39,7 +39,8 @@ struct TodoListEditorView: View {
         } else {
             modelContext.insert(TodoList(name: trimmedName))
         }
-        try? modelContext.save()
-        dismiss()
+        if PersistenceErrorReporter.save(modelContext, operation: "To-do-Liste speichern") {
+            dismiss()
+        }
     }
 }

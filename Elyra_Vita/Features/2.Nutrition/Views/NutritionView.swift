@@ -234,7 +234,7 @@ struct NutritionView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(entry.foodName)
                     .font(.body.weight(.semibold))
-                Text("\(entry.mealType.title) · \(entry.amount.formatted(.number.precision(.fractionLength(0)))) \(entry.unit)")
+                Text("\(entry.mealType.title) · \(entry.amount.formatted(.number.precision(.fractionLength(0)))) \(displayUnit(for: entry.unit))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -321,30 +321,19 @@ struct NutritionView: View {
             return localFood
         }
 
-        return NutritionFood(
-            id: entry.externalFoodID.isEmpty
-                ? "entry-\(entry.foodName)-\(entry.date.timeIntervalSince1970)"
-                : entry.externalFoodID,
-            name: entry.foodName,
-            brand: entry.brand,
-            unit: entry.unit,
-            caloriesPer100: entry.calories,
-            proteinPer100: entry.proteinGrams,
-            carbohydratesPer100: entry.carbohydratesGrams,
-            fatPer100: entry.fatGrams,
-            sugarPer100: entry.sugarGrams,
-            fiberPer100: entry.fiberGrams,
-            saturatedFatPer100: entry.saturatedFatGrams,
-            saltPer100: entry.saltGrams,
-            source: entry.source
-        )
+        return NutritionFood.from(entry: entry)
+    }
+
+    private func displayUnit(for unit: String) -> String {
+        unit == "piece" ? "Stück" : unit
     }
 
     private func deleteEntry() {
         guard let deletingEntry else { return }
         modelContext.delete(deletingEntry)
-        try? modelContext.save()
-        self.deletingEntry = nil
+        if PersistenceErrorReporter.save(modelContext, operation: "Ernährungseintrag löschen") {
+            self.deletingEntry = nil
+        }
     }
 }
 

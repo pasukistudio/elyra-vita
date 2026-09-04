@@ -10,6 +10,23 @@ import PasukiUI
 @MainActor
 final class WaterAndHealthTests: XCTestCase {
 
+    func testNutritionSnapshotNormalizesMultiplePiecesTo100Grams() {
+        let entry = NutritionEntry(
+            foodName: "Brötchen",
+            mealType: .snack,
+            amount: 2,
+            unit: "piece",
+            pieceWeight: 50,
+            calories: 250
+        )
+
+        let food = NutritionFood.from(entry: entry)
+
+        XCTAssertEqual(food.unit, "g")
+        XCTAssertEqual(food.pieceWeight, 50.0)
+        XCTAssertEqual(food.caloriesPer100, 250, accuracy: 0.001)
+    }
+
     // MARK: - Wasser und SwiftData
 
     /// Prüft, dass Wasser gespeichert wird und nur der ausgewählte Tag summiert wird.
@@ -628,7 +645,9 @@ final class WaterAndHealthTests: XCTestCase {
             ShoppingListItem.self,
             ShoppingListItemHistory.self,
             TodoList.self,
-            TodoTask.self
+            TodoTask.self,
+            Habit.self,
+            HabitCompletion.self
         ])
         let configuration = ModelConfiguration(
             schema: schema,

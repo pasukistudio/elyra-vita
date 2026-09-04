@@ -111,7 +111,7 @@ struct TodoListDetailView: View {
         .alert("Aufgabe löschen?", isPresented: deletionAlertIsPresented, presenting: pendingTaskDeletion) { task in
             Button("Löschen", role: .destructive) {
                 modelContext.delete(task)
-                try? modelContext.save()
+                PersistenceErrorReporter.save(modelContext, operation: "To-do löschen")
                 pendingTaskDeletion = nil
             }
             Button("Abbrechen", role: .cancel) {
@@ -148,7 +148,7 @@ struct TodoListDetailView: View {
 
         modelContext.insert(TodoTask(listID: list.id, title: trimmedTitle))
         list.updatedAt = .now
-        try? modelContext.save()
+        PersistenceErrorReporter.save(modelContext, operation: "To-do hinzufügen")
         inlineTitle = ""
         inlineTitleFocused = true
     }
@@ -158,7 +158,7 @@ struct TodoListDetailView: View {
             Button {
                 task.update(isCompleted: !task.isCompleted)
                 list.updatedAt = .now
-                try? modelContext.save()
+                PersistenceErrorReporter.save(modelContext, operation: "To-do aktualisieren")
             } label: {
                 Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
@@ -216,7 +216,7 @@ struct TodoListDetailView: View {
             ) {
                 task.update(isCompleted: !task.isCompleted)
                 list.updatedAt = .now
-                try? modelContext.save()
+                PersistenceErrorReporter.save(modelContext, operation: "To-do aktualisieren")
             }
             Button("Löschen", systemImage: "trash", role: .destructive) {
                 pendingTaskDeletion = task
@@ -239,7 +239,7 @@ struct TodoListDetailView: View {
             task.updatedAt = .now
         }
         list.updatedAt = .now
-        try? modelContext.save()
+        PersistenceErrorReporter.save(modelContext, operation: "To-do sortieren")
     }
 
     @ViewBuilder

@@ -408,6 +408,7 @@ struct SettingsView: View {
         do {
             try modelContext.save()
         } catch {
+            modelContext.rollback()
             logger.error(
                 "UserSettings konnten nicht gespeichert werden: \(error.localizedDescription)"
             )
