@@ -116,16 +116,16 @@ struct NutritionFood: Identifiable, Hashable {
             )
         ]
 
-        if let pieceWeight, pieceWeight > 0 {
-            options.append(
-                NutritionUnitOption(
-                    id: "piece",
-                    title: "Stück",
-                    symbol: "Stück",
-                    baseAmount: pieceWeight
-                )
+        // Stück bleibt auch bei gescannten Produkten ohne hinterlegtes
+        // Stückgewicht auswählbar. Das Gewicht wird dann im Dialog erfasst.
+        options.append(
+            NutritionUnitOption(
+                id: "piece",
+                title: "Stück",
+                symbol: "Stück",
+                baseAmount: pieceWeight.flatMap { $0 > 0 ? $0 : nil } ?? 1
             )
-        }
+        )
 
         return options
     }

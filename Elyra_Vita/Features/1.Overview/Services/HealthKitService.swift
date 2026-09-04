@@ -60,8 +60,6 @@ final class HealthKitService {
 
     private let healthStore = HKHealthStore()
 
-    private var authorizationWasRequested = false
-
     private init() {}
 
     // MARK: - Berechtigungen
@@ -89,9 +87,7 @@ final class HealthKitService {
             throw HealthKitError.unavailable
         }
 
-        guard !authorizationWasRequested else { return }
         try await healthStore.requestAuthorization(toShare: [], read: readTypes)
-        authorizationWasRequested = true
     }
 
     // MARK: - Bereichsabfrage
@@ -146,15 +142,17 @@ final class HealthKitService {
         )
         async let weight = dailyWeightValues(from: start, to: end)
 
-        let values = try await (
-            steps,
-            distance,
-            activeEnergy,
-            basalEnergy,
-            protein,
-            carbohydrates,
-            fat,
-            weight
+        // Ein einzelner nicht lesbarer HealthKit-Typ darf die übrigen Werte
+        // nicht ausblenden. Nicht verfügbare Metriken bleiben nil.
+        let values = await (
+            try? steps,
+            try? distance,
+            try? activeEnergy,
+            try? basalEnergy,
+            try? protein,
+            try? carbohydrates,
+            try? fat,
+            try? weight
         )
 
         let calendar = Calendar.current
@@ -163,14 +161,14 @@ final class HealthKitService {
 
         while date < end {
             let metrics = HealthMetrics(
-                steps: values.0[date],
-                walkingRunningDistanceKilometers: values.1[date],
-                activeEnergyKilocalories: values.2[date],
-                basalEnergyKilocalories: values.3[date],
-                weightKilograms: values.7[date],
-                proteinGrams: values.4[date],
-                carbohydratesGrams: values.5[date],
-                fatGrams: values.6[date]
+            steps: values.0?[date],
+            walkingRunningDistanceKilometers: values.1?[date],
+            activeEnergyKilocalories: values.2?[date],
+            basalEnergyKilocalories: values.3?[date],
+            weightKilograms: values.7?[date],
+            proteinGrams: values.4?[date],
+            carbohydratesGrams: values.5?[date],
+            fatGrams: values.6?[date]
             )
 
             if metrics.containsData {
@@ -253,14 +251,14 @@ final class HealthKitService {
         )
 
         return HealthMetrics(
-            steps: try await steps,
-            walkingRunningDistanceKilometers: try await distance,
-            activeEnergyKilocalories: try await activeEnergy,
-            basalEnergyKilocalories: try await basalEnergy,
-            weightKilograms: try await weightOrNil(on: date),
-            proteinGrams: try await protein,
-            carbohydratesGrams: try await carbohydrates,
-            fatGrams: try await fat
+            steps: try? await steps,
+            walkingRunningDistanceKilometers: try? await distance,
+            activeEnergyKilocalories: try? await activeEnergy,
+            basalEnergyKilocalories: try? await basalEnergy,
+            weightKilograms: try? await weightOrNil(on: date),
+            proteinGrams: try? await protein,
+            carbohydratesGrams: try? await carbohydrates,
+            fatGrams: try? await fat
         )
     }
 

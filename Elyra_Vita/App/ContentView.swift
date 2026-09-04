@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import OSLog
 import PasukiUI
+import UserNotifications
 
 extension Notification.Name {
     static let persistenceError = Notification.Name("ElyraVita.PersistenceError")
@@ -20,7 +21,11 @@ enum PersistenceErrorReporter {
             Logger(subsystem: "de.pasukistudio.elyra-vita", category: "Persistence")
                 .error("\(operation, privacy: .public) fehlgeschlagen: \(message, privacy: .public)")
             onError?(message)
-            NotificationCenter.default.post(name: .persistenceError, object: message)
+            // Views mit eigenem Fehlerzustand zeigen die Meldung selbst. Der
+            // globale Alert ist nur der Fallback für Aufrufer ohne Callback.
+            if onError == nil {
+                NotificationCenter.default.post(name: .persistenceError, object: message)
+            }
             return false
         }
     }
@@ -75,6 +80,9 @@ struct ContentView: View {
     @State private var showingNewTodoList = false
     @State private var showingNewHabit = false
     @State private var persistenceErrorMessage: String?
+    @Environment(\.scenePhase) private var scenePhase
+    @Query(sort: \Habit.updatedAt, order: .reverse) private var habits: [Habit]
+    @Query private var habitCompletions: [HabitCompletion]
 
     /// Steuert die Navigation zu einem einzelnen Gesundheitstrend.
     @State private var selectedHealthMetric: HealthTrendMetric?
@@ -159,6 +167,14 @@ struct ContentView: View {
         } message: {
             Text(persistenceErrorMessage ?? "Bitte versuche es erneut.")
         }
+        .task {
+            await synchronizeHabitNotifications()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                Task { await synchronizeHabitNotifications() }
+            }
+        }
     }
 
     private var persistenceErrorPresented: Binding<Bool> {
@@ -166,6 +182,10 @@ struct ContentView: View {
             get: { persistenceErrorMessage != nil },
             set: { if !$0 { persistenceErrorMessage = nil } }
         )
+    }
+
+    private func synchronizeHabitNotifications() async {
+        _ = await HabitNotificationService.synchronize(habits: habits, completions: habitCompletions)
     }
 
     // MARK: - Gemeinsame Toolbar

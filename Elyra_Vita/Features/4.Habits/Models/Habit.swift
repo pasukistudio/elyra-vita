@@ -165,3 +165,28 @@ final class HabitCompletion {
         updatedAt = completedAt
     }
 }
+
+@MainActor
+enum HabitCompletionStore {
+    /// Entfernt doppelte Abschlüsse anhand von Habit und Kalendertag.
+    /// Der älteste Datensatz bleibt erhalten, damit Synchronisationskonflikte
+    /// nicht mehrfach in Fortschritt und Erinnerungen auftauchen.
+    @discardableResult
+    static func removeDuplicates(in context: ModelContext) throws -> Bool {
+        let records = try context.fetch(FetchDescriptor<HabitCompletion>())
+        var seen = Set<String>()
+        var removedAny = false
+        let calendar = Calendar.current
+
+        for record in records.sorted(by: { $0.completedAt < $1.completedAt }) {
+            let day = calendar.startOfDay(for: record.day).timeIntervalSince1970
+            let key = "\(record.habitID.uuidString)-\(day)"
+            if !seen.insert(key).inserted {
+                context.delete(record)
+                removedAny = true
+            }
+        }
+
+        return removedAny
+    }
+}

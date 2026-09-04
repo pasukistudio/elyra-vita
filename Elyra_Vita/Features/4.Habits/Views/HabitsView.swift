@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UserNotifications
 import PasukiUI
 
 struct HabitsView: View {
@@ -14,13 +15,7 @@ struct HabitsView: View {
 
     init(showingNewHabit: Binding<Bool>) {
         _showingNewHabit = showingNewHabit
-        let calendar = Calendar.current
-        let monthStart = calendar.dateInterval(of: .month, for: .now)?.start ?? .now
-        let rangeStart = calendar.date(byAdding: .month, value: -2, to: monthStart) ?? monthStart
-        let rangeEnd = calendar.date(byAdding: .month, value: 3, to: monthStart) ?? .now
-        _completions = Query(filter: #Predicate<HabitCompletion> { completion in
-            completion.day >= rangeStart && completion.day < rangeEnd
-        })
+        _completions = Query(sort: \HabitCompletion.day, order: .forward)
     }
 
     private var activeHabits: [Habit] { habits.filter { !$0.isArchived } }
@@ -91,9 +86,20 @@ struct HabitsView: View {
         .sheet(item: $editingHabit) { HabitEditorView(habit: $0).presentationDetents([.medium, .large]) }
         .alert("Gewohnheit löschen?", isPresented: deletingAlert, presenting: deletingHabit) { habit in
             Button("Löschen", role: .destructive) {
-                modelContext.delete(habit)
-                if PersistenceErrorReporter.save(modelContext, operation: "Habit löschen") {
-                    deletingHabit = nil
+                do {
+                    let habitID = habit.id
+                    let descriptor = FetchDescriptor<HabitCompletion>(predicate: #Predicate { completion in
+                        completion.habitID == habitID
+                    })
+                    for completion in try modelContext.fetch(descriptor) {
+                        modelContext.delete(completion)
+                    }
+                    modelContext.delete(habit)
+                    if PersistenceErrorReporter.save(modelContext, operation: "Habit löschen") {
+                        deletingHabit = nil
+                    }
+                } catch {
+                    saveErrorMessage = error.localizedDescription
                 }
             }
             Button("Abbrechen", role: .cancel) { deletingHabit = nil }
@@ -208,8 +214,12 @@ struct HabitsView: View {
     }
 
     private func toggle(_ habit: Habit, completed: Bool) {
-        if let completion = completions.first(where: { $0.habitID == habit.id && Calendar.current.isDate($0.day, inSameDayAs: selectedDate) }) {
+        let matchingCompletions = completions.filter { $0.habitID == habit.id && Calendar.current.isDate($0.day, inSameDayAs: selectedDate) }
+        if let completion = matchingCompletions.first {
             modelContext.delete(completion)
+            for duplicate in matchingCompletions.dropFirst() {
+                modelContext.delete(duplicate)
+            }
         } else if !completed { modelContext.insert(HabitCompletion(habitID: habit.id, day: selectedDate)) }
         PersistenceErrorReporter.save(modelContext, operation: "Habit-Abschluss ändern") { message in
             saveErrorMessage = message
@@ -217,18 +227,12 @@ struct HabitsView: View {
     }
 
     private func deduplicateCompletions() {
-        var seen = Set<String>()
-        var removedAny = false
-        for completion in completions.sorted(by: { $0.completedAt < $1.completedAt }) {
-            let day = Calendar.current.startOfDay(for: completion.day).timeIntervalSince1970
-            let key = "\(completion.habitID.uuidString)-\(day)"
-            if !seen.insert(key).inserted {
-                modelContext.delete(completion)
-                removedAny = true
+        do {
+            if try HabitCompletionStore.removeDuplicates(in: modelContext) {
+                PersistenceErrorReporter.save(modelContext, operation: "Doppelte Habit-Abschlüsse bereinigen")
             }
-        }
-        if removedAny {
-            PersistenceErrorReporter.save(modelContext, operation: "Doppelte Habit-Abschlüsse bereinigen")
+        } catch {
+            saveErrorMessage = error.localizedDescription
         }
     }
 
@@ -249,11 +253,13 @@ struct HabitsView: View {
     }
 
     private func rescheduleNotifications() async {
-        guard await HabitNotificationService.requestPermission() else {
+        let result = await HabitNotificationService.synchronize(habits: activeHabits, completions: completions)
+        if activeHabits.isEmpty { return }
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else {
             notificationMessage = "Benachrichtigungen sind deaktiviert. Aktiviere sie in den iPhone-Einstellungen, damit Habit-Erinnerungen angezeigt werden."
             return
         }
-        let result = await HabitNotificationService.schedule(for: activeHabits, completions: completions)
         if result.failedCount > 0 {
             notificationMessage = "\(result.failedCount) Erinnerung(en) konnten nicht geplant werden."
         } else if result.skippedCount > 0 {

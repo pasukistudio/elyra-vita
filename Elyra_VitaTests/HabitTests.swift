@@ -70,4 +70,54 @@ final class HabitTests: XCTestCase {
         try context.save()
         XCTAssertTrue(try context.fetch(FetchDescriptor<HabitCompletion>()).isEmpty)
     }
+
+    func testHabitCompletionStoreRemovesDuplicatesAndKeepsOldest() throws {
+        let schema = Schema([Habit.self, HabitCompletion.self])
+        let container = try ModelContainer(for: schema, configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)])
+        let context = ModelContext(container)
+        let habit = Habit(name: "Lesen")
+        context.insert(habit)
+
+        let oldest = HabitCompletion(habitID: habit.id, day: .now)
+        let duplicate = HabitCompletion(habitID: habit.id, day: .now)
+        duplicate.completedAt = oldest.completedAt.addingTimeInterval(60)
+        context.insert(oldest)
+        context.insert(duplicate)
+        try context.save()
+
+        XCTAssertTrue(try HabitCompletionStore.removeDuplicates(in: context))
+        try context.save()
+        let remaining = try context.fetch(FetchDescriptor<HabitCompletion>())
+        XCTAssertEqual(remaining.count, 1)
+        XCTAssertEqual(remaining.first?.id, oldest.id)
+    }
+
+    func testWeeklyReminderPlanningDoesNotScheduleEveryDay() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let start = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 9, day: 7)))
+        let habit = Habit(name: "Sport", recurrence: .weekly, anchorDate: start)
+        habit.targetCount = 2
+        let days = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
+        let planned = days.filter {
+            HabitNotificationService.shouldSchedule(habit: habit, on: $0, from: start, calendar: calendar, completionDays: [])
+        }
+
+        XCTAssertEqual(planned.count, 2)
+    }
+
+    func testMonthlyReminderPlanningRespectsCompletedCount() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let start = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 9, day: 1)))
+        let habit = Habit(name: "Großputz", recurrence: .monthly, anchorDate: start)
+        habit.targetCount = 2
+        let completed = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 9, day: 2)))
+        let days = (0..<30).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
+        let planned = days.filter {
+            HabitNotificationService.shouldSchedule(habit: habit, on: $0, from: start, calendar: calendar, completionDays: [completed])
+        }
+
+        XCTAssertEqual(planned.count, 1)
+    }
 }
