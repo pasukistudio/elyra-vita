@@ -2,6 +2,22 @@ import SwiftUI
 import SwiftData
 import PasukiUI
 
+private enum PlanningArea: String, CaseIterable, Identifiable {
+    case habits
+    case todos
+    case shopping
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .habits: "Gewohnheiten"
+        case .todos: "Aufgaben"
+        case .shopping: "Einkauf"
+        }
+    }
+}
+
 // MARK: - PlanningView
 
 /// Einstieg in die Planung. Die Listenstruktur kann später für To-dos,
@@ -12,7 +28,6 @@ struct PlanningView: View {
     @Query private var shoppingItems: [ShoppingListItem]
     @Query(sort: \TodoList.updatedAt, order: .reverse) private var todoLists: [TodoList]
     @Query private var todoTasks: [TodoTask]
-    @Query(sort: \Habit.updatedAt, order: .reverse) private var habits: [Habit]
     @Binding private var showingNewList: Bool
     @Binding private var showingNewTodoList: Bool
     @Binding private var showingNewHabit: Bool
@@ -20,8 +35,7 @@ struct PlanningView: View {
     @State private var editingTodoList: TodoList?
     @State private var pendingShoppingListDeletion: ShoppingList?
     @State private var pendingTodoListDeletion: TodoList?
-
-    private var activeHabits: [Habit] { habits.filter { !$0.isArchived } }
+    @State private var selectedArea: PlanningArea = .habits
 
     init(
         showingNewList: Binding<Bool> = .constant(false),
@@ -35,134 +49,28 @@ struct PlanningView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    if activeHabits.isEmpty {
-                        emptyPlanningCard(
-                            title: "Noch keine Gewohnheiten",
-                            description: "Lege deine erste Gewohnheit an.",
-                            actionTitle: "Gewohnheit anlegen",
-                            systemImage: "checkmark.circle.fill",
-                            color: .green
-                        ) {
-                            showingNewHabit = true
-                        }
-                    } else {
-                        NavigationLink {
-                            HabitsView(showingNewHabit: $showingNewHabit)
-                        } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.green)
-                                    .frame(width: 32, height: 32)
-                                    .background(.green.opacity(0.12), in: Circle())
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("Gewohnheiten").font(.headline)
-                                    Text("\(activeHabits.count) aktive Gewohnheiten")
-                                        .font(.caption).foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    }
-                } header: { Text("Gewohnheiten") }
+            VStack(spacing: 0) {
+                areaPicker
 
-                Section {
-                    if shoppingLists.isEmpty {
-                        emptyPlanningCard(
-                            title: "Noch keine Einkaufsliste",
-                            description: "Lege eine Liste an, um deine Einkäufe zu planen.",
-                            actionTitle: "Einkaufsliste anlegen",
-                            systemImage: "cart.fill",
-                            color: .blue
-                        ) {
-                            showingNewList = true
-                        }
-                    } else {
-                        ForEach(shoppingLists) { list in
-                            NavigationLink {
-                                ShoppingListDetailView(list: list)
-                            } label: {
-                                listRow(list)
-                            }
-                            .swipeActions {
-                                Button("Bearbeiten", systemImage: "pencil") {
-                                    editingList = list
-                                }
-                                .tint(.blue)
-                                Button(role: .destructive) {
-                                    pendingShoppingListDeletion = list
-                                } label: {
-                                    Label("Löschen", systemImage: "trash")
-                                }
-                            }
-                            .contextMenu {
-                                Button("Bearbeiten", systemImage: "pencil") {
-                                    editingList = list
-                                }
-                                Button("Löschen", systemImage: "trash", role: .destructive) {
-                                    pendingShoppingListDeletion = list
-                                }
-                            }
-                        }
-                    }
-                } header: {
-                    Text("Einkaufslisten")
-                }
+                TabView(selection: $selectedArea) {
+                    HabitsView(showingNewHabit: $showingNewHabit)
+                        .tag(PlanningArea.habits)
 
-                Section {
-                    if todoLists.isEmpty {
-                        emptyPlanningCard(
-                            title: "Noch keine To-do-Liste",
-                            description: "Lege eine Liste für deine Aufgaben an.",
-                            actionTitle: "To-do-Liste anlegen",
-                            systemImage: "checklist",
-                            color: .purple
-                        ) {
-                            showingNewTodoList = true
-                        }
-                    } else {
-                        ForEach(todoLists) { list in
-                            NavigationLink {
-                                TodoListDetailView(list: list)
-                            } label: {
-                                todoListRow(list)
-                            }
-                            .swipeActions {
-                                Button("Bearbeiten", systemImage: "pencil") {
-                                    editingTodoList = list
-                                }
-                                .tint(.blue)
-                                Button(role: .destructive) {
-                                    pendingTodoListDeletion = list
-                                } label: {
-                                    Label("Löschen", systemImage: "trash")
-                                }
-                            }
-                            .contextMenu {
-                                Button("Bearbeiten", systemImage: "pencil") {
-                                    editingTodoList = list
-                                }
-                                Button("Löschen", systemImage: "trash", role: .destructive) {
-                                    pendingTodoListDeletion = list
-                                }
-                            }
-                        }
-                    }
-                } header: {
-                    Text("To-do-Listen")
+                    todoPage
+                        .tag(PlanningArea.todos)
+
+                    shoppingPage
+                        .tag(PlanningArea.shopping)
                 }
+                .tabViewStyle(.page(indexDisplayMode: .never))
             }
-            .listStyle(.insetGrouped)
-            .navigationTitle("Planung")
+            .navigationTitle(selectedArea.title)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingNewList = true
-                    } label: {
-                        Label("Neue Einkaufsliste", systemImage: "plus")
+                    Button(action: addAction) {
+                        Image(systemName: "plus")
                     }
+                    .accessibilityLabel(addActionTitle)
                 }
             }
             .sheet(isPresented: $showingNewList) {
@@ -209,6 +117,94 @@ struct PlanningView: View {
             }
         }
         .appBackground()
+    }
+
+    private var areaPicker: some View {
+        Picker("Planungsbereich", selection: $selectedArea) {
+            ForEach(PlanningArea.allCases) { area in
+                Text(area.title).tag(area)
+            }
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .accessibilityLabel("Planungsbereich auswählen")
+    }
+
+    private var addActionTitle: String {
+        switch selectedArea {
+        case .habits: "Neue Gewohnheit"
+        case .shopping: "Neue Einkaufsliste"
+        case .todos: "Neue To-do-Liste"
+        }
+    }
+
+    private var addAction: () -> Void {
+        switch selectedArea {
+        case .habits: { showingNewHabit = true }
+        case .shopping: { showingNewList = true }
+        case .todos: { showingNewTodoList = true }
+        }
+    }
+
+    private var shoppingPage: some View {
+        List {
+            if shoppingLists.isEmpty {
+                emptyPlanningCard(
+                    title: "Noch keine Einkaufsliste",
+                    description: "Lege eine Liste an, um deine Einkäufe zu planen.",
+                    actionTitle: "Einkaufsliste anlegen",
+                    systemImage: "cart.fill",
+                    color: .blue,
+                    action: { showingNewList = true }
+                )
+            } else {
+                ForEach(shoppingLists) { list in
+                    NavigationLink { ShoppingListDetailView(list: list) } label: { listRow(list) }
+                        .swipeActions {
+                            Button("Bearbeiten", systemImage: "pencil") { editingList = list }.tint(.blue)
+                            Button(role: .destructive) { pendingShoppingListDeletion = list } label: {
+                                Label("Löschen", systemImage: "trash")
+                            }
+                        }
+                        .contextMenu {
+                            Button("Bearbeiten", systemImage: "pencil") { editingList = list }
+                            Button("Löschen", systemImage: "trash", role: .destructive) { pendingShoppingListDeletion = list }
+                        }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+    }
+
+    private var todoPage: some View {
+        List {
+            if todoLists.isEmpty {
+                emptyPlanningCard(
+                    title: "Noch keine To-do-Liste",
+                    description: "Lege eine Liste für deine Aufgaben an.",
+                    actionTitle: "To-do-Liste anlegen",
+                    systemImage: "checklist",
+                    color: .purple,
+                    action: { showingNewTodoList = true }
+                )
+            } else {
+                ForEach(todoLists) { list in
+                    NavigationLink { TodoListDetailView(list: list) } label: { todoListRow(list) }
+                        .swipeActions {
+                            Button("Bearbeiten", systemImage: "pencil") { editingTodoList = list }.tint(.purple)
+                            Button(role: .destructive) { pendingTodoListDeletion = list } label: {
+                                Label("Löschen", systemImage: "trash")
+                            }
+                        }
+                        .contextMenu {
+                            Button("Bearbeiten", systemImage: "pencil") { editingTodoList = list }
+                            Button("Löschen", systemImage: "trash", role: .destructive) { pendingTodoListDeletion = list }
+                        }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
     }
 
     private func emptyPlanningCard(
