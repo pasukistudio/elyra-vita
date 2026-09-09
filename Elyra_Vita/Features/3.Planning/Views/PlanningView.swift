@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 import PasukiUI
 
-private enum PlanningArea: String, CaseIterable, Identifiable {
+enum PlanningArea: String, CaseIterable, Identifiable {
     case habits
     case todos
     case shopping
@@ -23,7 +23,9 @@ private enum PlanningArea: String, CaseIterable, Identifiable {
 /// Einstieg in die Planung. Die Listenstruktur kann später für To-dos,
 /// Gewohnheiten und geteilte Bereiche erweitert werden.
 struct PlanningView: View {
+    @Environment(\.elyraAccentColor) private var accentColor
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \ShoppingList.updatedAt, order: .reverse) private var shoppingLists: [ShoppingList]
     @Query private var shoppingItems: [ShoppingListItem]
     @Query(sort: \TodoList.updatedAt, order: .reverse) private var todoLists: [TodoList]
@@ -35,43 +37,66 @@ struct PlanningView: View {
     @State private var editingTodoList: TodoList?
     @State private var pendingShoppingListDeletion: ShoppingList?
     @State private var pendingTodoListDeletion: TodoList?
-    @State private var selectedArea: PlanningArea = .habits
+    @Binding private var selectedArea: PlanningArea
+    @State private var isEditing = false
 
     init(
+        selectedArea: Binding<PlanningArea> = .constant(.habits),
         showingNewList: Binding<Bool> = .constant(false),
         showingNewTodoList: Binding<Bool> = .constant(false),
         showingNewHabit: Binding<Bool> = .constant(false)
     ) {
+        self._selectedArea = selectedArea
         self._showingNewList = showingNewList
         self._showingNewTodoList = showingNewTodoList
         self._showingNewHabit = showingNewHabit
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                areaPicker
-
-                TabView(selection: $selectedArea) {
-                    HabitsView(showingNewHabit: $showingNewHabit)
-                        .tag(PlanningArea.habits)
-
-                    todoPage
-                        .tag(PlanningArea.todos)
-
-                    shoppingPage
-                        .tag(PlanningArea.shopping)
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-            }
-            .navigationTitle(selectedArea.title)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: addAction) {
-                        Image(systemName: "plus")
+        ZStack(alignment: .bottomTrailing) {
+                VStack(spacing: 0) {
+                    HStack(alignment: .center) {
+                        Text(selectedArea.title)
+                            .font(.largeTitle.weight(.bold))
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        if selectedArea == .habits {
+                            Button(isEditing ? "Fertig" : "Edit") {
+                                isEditing.toggle()
+                            }
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(accentColor)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 10)
+                            .background(accentColor.opacity(0.14), in: Capsule())
+                            .accessibilityLabel(isEditing ? "Bearbeiten beenden" : "Gewohnheiten bearbeiten")
+                        }
                     }
-                    .accessibilityLabel(addActionTitle)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
+                    .padding(.bottom, 14)
+
+                    areaPicker
+
+                    TabView(selection: $selectedArea) {
+                        HabitsView(showingNewHabit: $showingNewHabit)
+                            .tag(PlanningArea.habits)
+
+                        todoPage
+                            .tag(PlanningArea.todos)
+
+                        shoppingPage
+                            .tag(PlanningArea.shopping)
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .never))
                 }
+
+                ElyraFloatingActionButton(
+                    accessibilityLabel: addActionTitle,
+                    action: addAction
+                )
+                .padding(.trailing, 22)
+                .padding(.bottom, 18)
             }
             .sheet(isPresented: $showingNewList) {
                 ShoppingListEditorView()
@@ -115,8 +140,29 @@ struct PlanningView: View {
             } message: { list in
                 Text("\"\(list.name)\" und alle enthaltenen Aufgaben werden dauerhaft entfernt.")
             }
-        }
         .appBackground()
+        .task {
+            removeCompletedShoppingItems()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                removeCompletedShoppingItems()
+            }
+        }
+    }
+
+    /// Entfernt erledigte Artikel beim Öffnen der Planung und beim
+    /// Zurückkehren in die App, auch wenn die Detailansicht nicht neu geladen
+    /// wurde.
+    private func removeCompletedShoppingItems() {
+        let itemsToRemove = shoppingItems.filter {
+            $0.shouldBeRemoved(on: .now)
+        }
+
+        guard !itemsToRemove.isEmpty else { return }
+
+        itemsToRemove.forEach(modelContext.delete)
+        PersistenceErrorReporter.save(modelContext, operation: "Erledigte Einkaufsartikel entfernen")
     }
 
     private var areaPicker: some View {

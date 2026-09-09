@@ -81,7 +81,7 @@ struct DailyMetricsSummaryCard: View {
                 title: "Aktiv verbrannt",
                 value: integerText(healthMetrics?.activeEnergyKilocalories, unit: "kcal"),
                 systemImage: "figure.run",
-                color: .teal
+                color: accentColor
             )
 
             metricDivider
@@ -197,7 +197,7 @@ struct DailyMetricsSummaryCard: View {
                 title: "Kohlenhydrate",
                 value: macroText(nutritionCarbohydratesGrams),
                 percent: nil,
-                color: .teal
+                color: accentColor
             )
 
             Divider()
