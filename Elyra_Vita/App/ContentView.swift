@@ -1,35 +1,7 @@
-import SwiftUI
-import SwiftData
-import OSLog
 import PasukiUI
+import SwiftData
+import SwiftUI
 import UserNotifications
-
-extension Notification.Name {
-    static let persistenceError = Notification.Name("ElyraVita.PersistenceError")
-}
-
-@MainActor
-enum PersistenceErrorReporter {
-    @discardableResult
-    static func save(_ context: ModelContext, operation: String, onError: ((String) -> Void)? = nil) -> Bool {
-        do {
-            try context.save()
-            return true
-        } catch {
-            context.rollback()
-            let message = error.localizedDescription
-            Logger(subsystem: "de.pasukistudio.elyra-vita", category: "Persistence")
-                .error("\(operation, privacy: .public) fehlgeschlagen: \(message, privacy: .public)")
-            onError?(message)
-            // Views mit eigenem Fehlerzustand zeigen die Meldung selbst. Der
-            // globale Alert ist nur der Fallback für Aufrufer ohne Callback.
-            if onError == nil {
-                NotificationCenter.default.post(name: .persistenceError, object: message)
-            }
-            return false
-        }
-    }
-}
 
 // MARK: - ContentView
 
@@ -38,11 +10,6 @@ struct ContentView: View {
     // MARK: - Abhängigkeiten
 
     @Environment(\.modelContext) private var modelContext
-
-    private let logger = Logger(
-        subsystem: "de.pasukistudio.elyra-vita",
-        category: "Water"
-    )
 
     // MARK: - Navigation und Auswahl
 
@@ -90,15 +57,14 @@ struct ContentView: View {
     @State private var selectedHealthMetricDate = Date()
 
     // MARK: - Ansicht
+
     var body: some View {
         NavigationStack {
-            ZStack {
-                TabView(selection: $selectedSection) {
-                    overview
-                    nutrition
-                    planning
-                    recipies
-                }
+            TabView(selection: $selectedSection) {
+                overview
+                nutrition
+                planning
+                recipes
             }
             .toolbar {
                 sharedToolbar
@@ -143,8 +109,8 @@ struct ContentView: View {
                     }
                 )
                 .presentationDetents([.medium, .large])
-                    .presentationDragIndicator(.visible)
-                    .presentationBackground(.regularMaterial)
+                .presentationDragIndicator(.visible)
+                .presentationBackground(.regularMaterial)
             }
             .sheet(isPresented: $showingAddWeight) {
                 AddWeightView(
@@ -188,7 +154,11 @@ struct ContentView: View {
     private var persistenceErrorPresented: Binding<Bool> {
         Binding(
             get: { persistenceErrorMessage != nil },
-            set: { if !$0 { persistenceErrorMessage = nil } }
+            set: {
+                if !$0 {
+                    persistenceErrorMessage = nil
+                }
+            }
         )
     }
 
@@ -259,8 +229,8 @@ struct ContentView: View {
     private var overview: some View {
         OverviewView(
             selectedDate: selectedDate,
-            calorieGoal: userSettings.first?.calorieGoal ?? 1_800,
-            waterGoal: userSettings.first?.waterGoalML ?? 2_500,
+            calorieGoal: userSettings.first?.calorieGoal ?? 1800,
+            waterGoal: userSettings.first?.waterGoalML ?? 2500,
             accentColor: selectedAccentColor,
             onOpenWaterTrend: {
                 selectedHealthMetric = .water
@@ -271,29 +241,29 @@ struct ContentView: View {
                 selectedHealthMetricDate = selectedDate
             }
         )
-            .tabItem {
-                Label(
-                    AppSection.overview.title,
-                    systemImage: AppSection.overview.icon
-                )
-            }
-            .tag(AppSection.overview)
+        .tabItem {
+            Label(
+                AppSection.overview.title,
+                systemImage: AppSection.overview.icon
+            )
+        }
+        .tag(AppSection.overview)
     }
 
     /// Der Ernaehrungs-Tab.
     private var nutrition: some View {
         NutritionView(
             selectedDate: selectedDate,
-            calorieGoal: userSettings.first?.calorieGoal ?? 1_800,
+            calorieGoal: userSettings.first?.calorieGoal ?? 1800,
             accentColor: selectedAccentColor
         )
-            .tabItem {
-                Label(
-                    AppSection.nutrition.title,
-                    systemImage: AppSection.nutrition.icon
-                )
-            }
-            .tag(AppSection.nutrition)
+        .tabItem {
+            Label(
+                AppSection.nutrition.title,
+                systemImage: AppSection.nutrition.icon
+            )
+        }
+        .tag(AppSection.nutrition)
     }
 
     /// Der Planungs-Tab.
@@ -304,25 +274,25 @@ struct ContentView: View {
             showingNewTodoList: $showingNewTodoList,
             showingNewHabit: $showingNewHabit
         )
-            .tabItem {
-                Label(
-                    AppSection.planning.title,
-                    systemImage: AppSection.planning.icon
-                )
-            }
-            .tag(AppSection.planning)
+        .tabItem {
+            Label(
+                AppSection.planning.title,
+                systemImage: AppSection.planning.icon
+            )
+        }
+        .tag(AppSection.planning)
     }
 
     /// Der Rezept-Tab.
-    private var recipies: some View {
-        RecipiesView()
+    private var recipes: some View {
+        RecipesView()
             .tabItem {
                 Label(
-                    AppSection.recipies.title,
-                    systemImage: AppSection.recipies.icon
+                    AppSection.recipes.title,
+                    systemImage: AppSection.recipes.icon
                 )
             }
-            .tag(AppSection.recipies)
+            .tag(AppSection.recipes)
     }
 
     // MARK: - Datumsnavigation
@@ -350,7 +320,6 @@ struct ContentView: View {
                 .year()
         )
     }
-
 
     /// Verschiebt das ausgewaehlte Datum um eine Anzahl von Tagen.
     /// Negative Werte gehen zurueck, positive Werte gehen voraus.
@@ -394,9 +363,9 @@ struct ContentView: View {
     private var preferredColorScheme: ColorScheme? {
         guard
             let rawValue =
-                userSettings.first?.appearanceRawValue,
+            userSettings.first?.appearanceRawValue,
             let appearance =
-                AppAppearance(rawValue: rawValue)
+            AppAppearance(rawValue: rawValue)
         else {
             return nil
         }
@@ -424,35 +393,4 @@ struct ContentView: View {
 
         return accentColor.color ?? ColorPreset.blue.color
     }
-}
-
-#Preview {
-    let proAccess = PasukiStoreKitProService(
-        configuration: PasukiProProductConfiguration(
-            featureByProductIdentifier: [:]
-        )
-    )
-    let syncMonitor = PasukiCloudKitSyncMonitor(isEnabled: false)
-
-    ContentView()
-        .modelContainer(
-            for: [
-                UserSettings.self,
-                WaterEntry.self,
-                WeightEntry.self,
-                NutritionEntry.self,
-                CustomFood.self,
-                FavoriteFood.self,
-                ShoppingList.self,
-                ShoppingListItem.self,
-                ShoppingListItemHistory.self,
-                TodoList.self,
-                TodoTask.self,
-                Habit.self,
-                HabitCompletion.self
-            ],
-            inMemory: true
-        )
-        .environmentObject(proAccess)
-        .environmentObject(syncMonitor)
 }

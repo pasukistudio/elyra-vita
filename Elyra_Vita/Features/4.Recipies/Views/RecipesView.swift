@@ -1,8 +1,8 @@
-import SwiftUI
-import SwiftData
 import PasukiUI
+import SwiftData
+import SwiftUI
 
-struct RecipiesView: View {
+struct RecipesView: View {
     @Environment(\.elyraAccentColor) private var accentColor
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Recipe.updatedAt, order: .reverse) private var recipes: [Recipe]
@@ -25,7 +25,7 @@ struct RecipiesView: View {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         let matching = query.isEmpty ? recipes : recipes.filter { recipe in
             recipe.title.localizedCaseInsensitiveContains(query) ||
-            ingredients.filter { $0.recipeID == recipe.id }.contains { $0.name.localizedCaseInsensitiveContains(query) }
+                ingredients.filter { $0.recipeID == recipe.id }.contains { $0.name.localizedCaseInsensitiveContains(query) }
         }
         let sorted: [Recipe]
         switch sortOption {
@@ -39,7 +39,9 @@ struct RecipiesView: View {
     private func filteredByDetails(_ candidates: [Recipe]) -> [Recipe] {
         let terms = ingredientFilter.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
         return candidates.filter { recipe in
-            if let maximumMinutes, recipe.prepMinutes > maximumMinutes { return false }
+            if let maximumMinutes, recipe.prepMinutes > maximumMinutes {
+                return false
+            }
             guard !terms.isEmpty else { return true }
             let names = ingredients.filter { $0.recipeID == recipe.id }.map { $0.name }
             let matches = terms.map { term in names.contains { $0.localizedCaseInsensitiveContains(term) } }
@@ -49,7 +51,7 @@ struct RecipiesView: View {
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-                VStack(spacing: 0) {
+            VStack(spacing: 0) {
                 HStack(alignment: .center) {
                     Text("Rezepte")
                         .font(.largeTitle.weight(.bold))
@@ -101,33 +103,33 @@ struct RecipiesView: View {
                     }
                     .scrollIndicators(.hidden)
                 }
-                }
+            }
 
-                ElyraFloatingActionButton(
-                    accessibilityLabel: "Neues Rezept",
-                    action: { showingEditor = true }
-                )
-                .padding(.trailing, 22)
-                .padding(.bottom, 18)
-            }
-            .sheet(isPresented: $showingEditor) { RecipeEditorView() }
-            .sheet(isPresented: $showingFilterSheet) {
-                RecipeFilterSheet(
-                    ingredientFilter: $ingredientFilter,
-                    matchAllIngredients: $matchAllIngredients,
-                    maximumMinutes: $maximumMinutes
-                )
-            }
-            .sheet(isPresented: $showingBooksSheet) { RecipeBooksView() }
-            .sheet(item: $editingRecipe) { recipe in
-                RecipeEditorView(recipe: recipe, ingredients: ingredients.filter { $0.recipeID == recipe.id }, steps: steps.filter { $0.recipeID == recipe.id })
-            }
-            .alert("Rezept löschen?", isPresented: deletingPresented, presenting: deletingRecipe) { recipe in
-                Button("Löschen", role: .destructive) { delete(recipe) }
-                Button("Abbrechen", role: .cancel) { deletingRecipe = nil }
-            } message: { recipe in
-                Text("\"\(recipe.title)\" wird dauerhaft entfernt.")
-            }
+            ElyraFloatingActionButton(
+                accessibilityLabel: "Neues Rezept",
+                action: { showingEditor = true }
+            )
+            .padding(.trailing, 22)
+            .padding(.bottom, 18)
+        }
+        .sheet(isPresented: $showingEditor) { RecipeEditorView() }
+        .sheet(isPresented: $showingFilterSheet) {
+            RecipeFilterSheet(
+                ingredientFilter: $ingredientFilter,
+                matchAllIngredients: $matchAllIngredients,
+                maximumMinutes: $maximumMinutes
+            )
+        }
+        .sheet(isPresented: $showingBooksSheet) { RecipeBooksView() }
+        .sheet(item: $editingRecipe) { recipe in
+            RecipeEditorView(recipe: recipe, ingredients: ingredients.filter { $0.recipeID == recipe.id }, steps: steps.filter { $0.recipeID == recipe.id })
+        }
+        .alert("Rezept löschen?", isPresented: deletingPresented, presenting: deletingRecipe) { recipe in
+            Button("Löschen", role: .destructive) { delete(recipe) }
+            Button("Abbrechen", role: .cancel) { deletingRecipe = nil }
+        } message: { recipe in
+            Text("\"\(recipe.title)\" wird dauerhaft entfernt.")
+        }
         .searchable(text: $searchText, prompt: "Rezepte oder Zutaten suchen")
         .appBackground()
     }
@@ -135,7 +137,7 @@ struct RecipiesView: View {
     private var filterBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
-                Button { } label: {
+                Button {} label: {
                     Label("Alle", systemImage: "books.vertical")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.white)
@@ -179,7 +181,9 @@ struct RecipiesView: View {
                 .font(.title3.weight(.bold))
             Text("Speichere deine Lieblingsrezepte mit Zutaten und Zubereitung.")
                 .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
-            if recipes.isEmpty { Button("Rezept anlegen") { showingEditor = true }.buttonStyle(.borderedProminent) }
+            if recipes.isEmpty {
+                Button("Rezept anlegen") { showingEditor = true }.buttonStyle(.borderedProminent)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(28)
@@ -190,10 +194,14 @@ struct RecipiesView: View {
             recipeImage(recipe, size: 88)
             VStack(alignment: .leading, spacing: 7) {
                 Text(recipe.title).font(.headline).foregroundStyle(.primary).multilineTextAlignment(.leading)
-                if !recipe.category.isEmpty { Text(recipe.category).font(.caption).foregroundStyle(.secondary) }
+                if !recipe.category.isEmpty {
+                    Text(recipe.category).font(.caption).foregroundStyle(.secondary)
+                }
                 HStack(spacing: 14) {
                     Label("\(recipe.servings)", systemImage: "person.2")
-                    if recipe.prepMinutes > 0 { Label("\(recipe.prepMinutes) Min.", systemImage: "clock") }
+                    if recipe.prepMinutes > 0 {
+                        Label("\(recipe.prepMinutes) Min.", systemImage: "clock")
+                    }
                 }
                 .font(.caption).foregroundStyle(.secondary)
             }
@@ -208,7 +216,11 @@ struct RecipiesView: View {
     private func recipeImage(_ recipe: Recipe, size: CGFloat) -> some View {
         if let url = URL(string: recipe.imageURL), !recipe.imageURL.isEmpty {
             AsyncImage(url: url) { phase in
-                if let image = phase.image { image.resizable().scaledToFill() } else { placeholderImage }
+                if let image = phase.image {
+                    image.resizable().scaledToFill()
+                } else {
+                    placeholderImage
+                }
             }
             .frame(width: size, height: size).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         } else {
@@ -231,10 +243,18 @@ struct RecipiesView: View {
         steps.filter { $0.recipeID == recipe.id }.forEach { modelContext.delete($0) }
         memberships.filter { $0.recipeID == recipe.id }.forEach { modelContext.delete($0) }
         modelContext.delete(recipe)
-        if PersistenceErrorReporter.save(modelContext, operation: "Rezept löschen") { deletingRecipe = nil }
+        if PersistenceErrorReporter.save(modelContext, operation: "Rezept löschen") {
+            deletingRecipe = nil
+        }
     }
 
-    private var deletingPresented: Binding<Bool> { Binding(get: { deletingRecipe != nil }, set: { if !$0 { deletingRecipe = nil } }) }
+    private var deletingPresented: Binding<Bool> {
+        Binding(get: { deletingRecipe != nil }, set: {
+            if !$0 {
+                deletingRecipe = nil
+            }
+        })
+    }
 }
 
 private struct RecipeFilterSheet: View {
@@ -285,7 +305,10 @@ private struct RecipeFilterSheet: View {
 
 private enum RecipeSort: String, CaseIterable, Identifiable {
     case recent, title, time
-    var id: Self { self }
+    var id: Self {
+        self
+    }
+
     var title: String {
         switch self {
         case .recent: "Zuletzt geändert"
@@ -343,7 +366,9 @@ private struct RecipeBookDetailView: View {
                 Text(recipe.title).font(.headline).foregroundStyle(.primary)
                 HStack(spacing: 12) {
                     Label("\(recipe.servings)", systemImage: "person.2")
-                    if recipe.prepMinutes > 0 { Label("\(recipe.prepMinutes) Min.", systemImage: "clock") }
+                    if recipe.prepMinutes > 0 {
+                        Label("\(recipe.prepMinutes) Min.", systemImage: "clock")
+                    }
                 }
                 .font(.caption).foregroundStyle(.secondary)
             }
@@ -369,16 +394,24 @@ private struct RecipeDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 AsyncImage(url: URL(string: recipe.imageURL)) { phase in
-                    if let image = phase.image { image.resizable().scaledToFill() } else { placeholder }
+                    if let image = phase.image {
+                        image.resizable().scaledToFill()
+                    } else {
+                        placeholder
+                    }
                 }
                 .frame(height: 230).frame(maxWidth: .infinity).clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
 
-                if !recipe.note.isEmpty { Text(recipe.note).font(.body).padding(18).frame(maxWidth: .infinity, alignment: .leading).background(.background, in: RoundedRectangle(cornerRadius: 20, style: .continuous)) }
+                if !recipe.note.isEmpty {
+                    Text(recipe.note).font(.body).padding(18).frame(maxWidth: .infinity, alignment: .leading).background(.background, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                }
 
                 HStack {
                     Label("\(recipe.servings) Portionen", systemImage: "person.2")
                     Spacer()
-                    if recipe.prepMinutes > 0 { Label("\(recipe.prepMinutes) Min.", systemImage: "clock") }
+                    if recipe.prepMinutes > 0 {
+                        Label("\(recipe.prepMinutes) Min.", systemImage: "clock")
+                    }
                 }
                 .foregroundStyle(accentColor).padding(18).background(.background, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
 
@@ -393,7 +426,7 @@ private struct RecipeDetailView: View {
                     }
                     .buttonStyle(.bordered)
                     if recipe.caloriesPerServing > 0 {
-                        Text("\(recipe.caloriesPerServing.formatted(.number.precision(.fractionLength(0...0)))) kcal / Portion")
+                        Text("\(recipe.caloriesPerServing.formatted(.number.precision(.fractionLength(0 ... 0)))) kcal / Portion")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }
@@ -447,7 +480,9 @@ private struct RecipeDetailView: View {
         }
     }
 
-    private var placeholder: some View { Image(systemName: "fork.knife").font(.largeTitle).foregroundStyle(.orange).frame(maxWidth: .infinity, maxHeight: .infinity).background(.orange.opacity(0.12)) }
+    private var placeholder: some View {
+        Image(systemName: "fork.knife").font(.largeTitle).foregroundStyle(.orange).frame(maxWidth: .infinity, maxHeight: .infinity).background(.orange.opacity(0.12))
+    }
 
     private func addIngredientsToNewList() {
         let list = ShoppingList(name: "Rezeptzutaten")
@@ -475,7 +510,11 @@ private struct RecipeDetailView: View {
     }
 
     private var confirmationPresented: Binding<Bool> {
-        Binding(get: { confirmationMessage != nil }, set: { if !$0 { confirmationMessage = nil } })
+        Binding(get: { confirmationMessage != nil }, set: {
+            if !$0 {
+                confirmationMessage = nil
+            }
+        })
     }
 
     private func logAsEaten() {
@@ -518,123 +557,127 @@ private struct CookingModeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
-                Text(recipe.title).font(.title2.weight(.bold)).multilineTextAlignment(.center)
-                SwiftUI.ProgressView(value: Double(currentStep + 1), total: Double(max(steps.count, 1)))
-                    .tint(accentColor)
-                HStack {
-                    Button { scannerPresented = true } label: {
-                        Label("Produkt scannen", systemImage: "barcode.viewfinder")
-                    }
-                    .buttonStyle(.borderedProminent).tint(accentColor)
-                    Spacer()
-                    Text("\(scannedProducts.count) erfasst")
-                        .font(.subheadline).foregroundStyle(.secondary)
-                }
-
-                if !scannedProducts.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Verwendete Produkte").font(.headline)
-                        ForEach($scannedProducts) { $product in
-                            HStack(spacing: 8) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(product.food.name).font(.subheadline.weight(.semibold))
-                                    if ingredients.isEmpty {
-                                        Text("Keine Rezeptzutaten vorhanden").font(.caption).foregroundStyle(.secondary)
-                                    } else {
-                                        Picker("Rezeptzutat", selection: $product.matchedIngredient) {
-                                            Text("Nicht zugeordnet").tag("")
-                                            ForEach(ingredients.sorted { $0.position < $1.position }) { ingredient in
-                                                Text(ingredient.name).tag(ingredient.name)
-                                            }
-                                        }
-                                        .font(.caption)
-                                        .tint(product.matchedIngredient.isEmpty ? .orange : .secondary)
-                                    }
-                                }
-                                Spacer()
-                                TextField("Menge", text: $product.amountText)
-                                    .keyboardType(.decimalPad)
-                                    .multilineTextAlignment(.trailing)
-                                    .frame(width: 58)
-                                Text(product.unit).foregroundStyle(.secondary)
-                            }
-                        }
-                        Button("Alle als gegessen eintragen") { saveScannedProducts() }
-                            .buttonStyle(.bordered)
-                    }
-                    .padding(14)
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
-                }
-
-                if !ingredients.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("Zutaten").font(.headline)
-                            Spacer()
-                            Text("\(checkedIngredientIDs.count)/\(ingredients.count)")
-                                .font(.subheadline).foregroundStyle(.secondary)
-                        }
-                        ForEach(ingredients.sorted { $0.position < $1.position }) { ingredient in
-                            Button {
-                                if checkedIngredientIDs.contains(ingredient.id) {
-                                    checkedIngredientIDs.remove(ingredient.id)
-                                } else {
-                                    checkedIngredientIDs.insert(ingredient.id)
-                                }
-                            } label: {
-                                HStack(spacing: 10) {
-                                    Image(systemName: checkedIngredientIDs.contains(ingredient.id) ? "checkmark.circle.fill" : "circle")
-                                        .foregroundStyle(checkedIngredientIDs.contains(ingredient.id) ? .green : .secondary)
-                                    Text([ingredient.amount, ingredient.unit, ingredient.name].filter { !$0.isEmpty }.joined(separator: " "))
-                                        .strikethrough(checkedIngredientIDs.contains(ingredient.id))
-                                        .foregroundStyle(.primary)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                    Spacer()
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(14)
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
-                }
-                if steps.isEmpty {
-                    Text("Keine Zubereitungsschritte vorhanden.").foregroundStyle(.secondary)
-                } else {
-                    Text("Schritt \(currentStep + 1) von \(steps.count)")
-                        .font(.headline).foregroundStyle(.secondary)
-                    Text(steps.sorted { $0.position < $1.position }[currentStep].instruction)
-                        .font(.title3).multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity)
-                    if remainingSeconds > 0 {
-                        Text(timerText).font(.system(size: 42, weight: .semibold, design: .rounded)).monospacedDigit()
-                    }
+                    Text(recipe.title).font(.title2.weight(.bold)).multilineTextAlignment(.center)
+                    SwiftUI.ProgressView(value: Double(currentStep + 1), total: Double(max(steps.count, 1)))
+                        .tint(accentColor)
                     HStack {
-                        Button("Zurück") { currentStep = max(0, currentStep - 1) }.disabled(currentStep == 0)
-                        Spacer()
-                        Button(currentStep == steps.count - 1 ? "Fertig" : "Weiter") {
-                            if currentStep == steps.count - 1 { dismiss() } else { currentStep += 1 }
+                        Button { scannerPresented = true } label: {
+                            Label("Produkt scannen", systemImage: "barcode.viewfinder")
                         }
                         .buttonStyle(.borderedProminent).tint(accentColor)
+                        Spacer()
+                        Text("\(scannedProducts.count) erfasst")
+                            .font(.subheadline).foregroundStyle(.secondary)
                     }
-                    if timerRunning {
-                        Button("Schritt-Timer stoppen") { stopTimer() }
-                            .foregroundStyle(.red)
-                    } else if currentStepDuration > 0 {
-                        Button("Schritt-Timer starten (\(currentStepDuration / 60) Min.)") {
-                            startTimer(seconds: currentStepDuration)
+
+                    if !scannedProducts.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Verwendete Produkte").font(.headline)
+                            ForEach($scannedProducts) { $product in
+                                HStack(spacing: 8) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(product.food.name).font(.subheadline.weight(.semibold))
+                                        if ingredients.isEmpty {
+                                            Text("Keine Rezeptzutaten vorhanden").font(.caption).foregroundStyle(.secondary)
+                                        } else {
+                                            Picker("Rezeptzutat", selection: $product.matchedIngredient) {
+                                                Text("Nicht zugeordnet").tag("")
+                                                ForEach(ingredients.sorted { $0.position < $1.position }) { ingredient in
+                                                    Text(ingredient.name).tag(ingredient.name)
+                                                }
+                                            }
+                                            .font(.caption)
+                                            .tint(product.matchedIngredient.isEmpty ? .orange : .secondary)
+                                        }
+                                    }
+                                    Spacer()
+                                    TextField("Menge", text: $product.amountText)
+                                        .keyboardType(.decimalPad)
+                                        .multilineTextAlignment(.trailing)
+                                        .frame(width: 58)
+                                    Text(product.unit).foregroundStyle(.secondary)
+                                }
+                            }
+                            Button("Alle als gegessen eintragen") { saveScannedProducts() }
+                                .buttonStyle(.bordered)
                         }
+                        .padding(14)
+                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    }
+
+                    if !ingredients.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Zutaten").font(.headline)
+                                Spacer()
+                                Text("\(checkedIngredientIDs.count)/\(ingredients.count)")
+                                    .font(.subheadline).foregroundStyle(.secondary)
+                            }
+                            ForEach(ingredients.sorted { $0.position < $1.position }) { ingredient in
+                                Button {
+                                    if checkedIngredientIDs.contains(ingredient.id) {
+                                        checkedIngredientIDs.remove(ingredient.id)
+                                    } else {
+                                        checkedIngredientIDs.insert(ingredient.id)
+                                    }
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: checkedIngredientIDs.contains(ingredient.id) ? "checkmark.circle.fill" : "circle")
+                                            .foregroundStyle(checkedIngredientIDs.contains(ingredient.id) ? .green : .secondary)
+                                        Text([ingredient.amount, ingredient.unit, ingredient.name].filter { !$0.isEmpty }.joined(separator: " "))
+                                            .strikethrough(checkedIngredientIDs.contains(ingredient.id))
+                                            .foregroundStyle(.primary)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                        Spacer()
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(14)
+                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    }
+                    if steps.isEmpty {
+                        Text("Keine Zubereitungsschritte vorhanden.").foregroundStyle(.secondary)
                     } else {
-                        Button("Eigenen Timer für diesen Schritt einstellen") {
-                            customTimerSheetPresented = true
+                        Text("Schritt \(currentStep + 1) von \(steps.count)")
+                            .font(.headline).foregroundStyle(.secondary)
+                        Text(steps.sorted { $0.position < $1.position }[currentStep].instruction)
+                            .font(.title3).multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity)
+                        if remainingSeconds > 0 {
+                            Text(timerText).font(.system(size: 42, weight: .semibold, design: .rounded)).monospacedDigit()
                         }
+                        HStack {
+                            Button("Zurück") { currentStep = max(0, currentStep - 1) }.disabled(currentStep == 0)
+                            Spacer()
+                            Button(currentStep == steps.count - 1 ? "Fertig" : "Weiter") {
+                                if currentStep == steps.count - 1 {
+                                    dismiss()
+                                } else {
+                                    currentStep += 1
+                                }
+                            }
+                            .buttonStyle(.borderedProminent).tint(accentColor)
+                        }
+                        if timerRunning {
+                            Button("Schritt-Timer stoppen") { stopTimer() }
+                                .foregroundStyle(.red)
+                        } else if currentStepDuration > 0 {
+                            Button("Schritt-Timer starten (\(currentStepDuration / 60) Min.)") {
+                                startTimer(seconds: currentStepDuration)
+                            }
+                        } else {
+                            Button("Eigenen Timer für diesen Schritt einstellen") {
+                                customTimerSheetPresented = true
+                            }
+                        }
+                        Button("Kochen abschließen") { completionSheetPresented = true }
+                            .buttonStyle(.borderedProminent).tint(.green)
                     }
-                    Button("Kochen abschließen") { completionSheetPresented = true }
-                        .buttonStyle(.borderedProminent).tint(.green)
                 }
-            }
-            .padding(24)
+                .padding(24)
             }
             .scrollIndicators(.hidden)
             .navigationTitle("Kochmodus")
@@ -684,7 +727,9 @@ private struct CookingModeView: View {
         }
     }
 
-    private var timerText: String { String(format: "%02d:%02d", remainingSeconds / 60, remainingSeconds % 60) }
+    private var timerText: String {
+        String(format: "%02d:%02d", remainingSeconds / 60, remainingSeconds % 60)
+    }
 
     private var currentStepDuration: Int {
         guard !steps.isEmpty, steps.indices.contains(currentStep) else { return 0 }
@@ -708,7 +753,9 @@ private struct CookingModeView: View {
                 return
             }
             let match = bestIngredientMatch(for: food)
-            if let match { checkedIngredientIDs.insert(match.id) }
+            if let match {
+                checkedIngredientIDs.insert(match.id)
+            }
             scannedProducts.append(ScannedCookingProduct(food: food, matchedIngredient: match?.name ?? ""))
             scanMessage = match == nil
                 ? "\(food.name) wurde erfasst. Bitte ordne das Produkt beim Rezept zu."
@@ -778,7 +825,7 @@ private struct CookingModeView: View {
     }
 
     private func meaningfulTokens(_ value: String) -> Set<String> {
-        let ignored: Set<String> = ["und", "oder", "mit", "für", "im", "in", "der", "die", "das"]
+        let ignored: Set = ["und", "oder", "mit", "für", "im", "in", "der", "die", "das"]
         return Set(value.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
             .split(whereSeparator: { !$0.isLetter })
             .map(String.init)
@@ -786,7 +833,11 @@ private struct CookingModeView: View {
     }
 
     private var scanMessagePresented: Binding<Bool> {
-        Binding(get: { scanMessage != nil }, set: { if !$0 { scanMessage = nil } })
+        Binding(get: { scanMessage != nil }, set: {
+            if !$0 {
+                scanMessage = nil
+            }
+        })
     }
 }
 
@@ -831,7 +882,9 @@ private struct ScannedCookingProduct: Identifiable {
     let food: NutritionFood
     var matchedIngredient: String
     var amountText = "100"
-    var unit: String { food.unit }
+    var unit: String {
+        food.unit
+    }
 }
 
 private struct CookingCompletionSheet: View {
