@@ -44,8 +44,15 @@ struct OpenFoodFactsService {
         // Die aktuelle v3-API liefert `status` als Text (z. B. "success").
         // Für die Produktentscheidung ist das Vorhandensein des Produktobjekts
         // maßgeblich; so bleiben auch ältere Antworten ohne Status kompatibel.
+        // `nil` bedeutet ausschließlich: Der Barcode ist in Open Food Facts
+        // nicht vorhanden. Ein vorhandenes Produkt ohne ausreichende
+        // Nährwerte ist ein eigener Fehler und darf nicht den Fallback zum
+        // Anlegen eines neuen Lebensmittels auslösen.
         guard let product = response.product else { return nil }
-        return product.food(barcode: normalizedBarcode)
+        guard let food = product.food(barcode: normalizedBarcode) else {
+            throw OpenFoodFactsError.missingNutritionData
+        }
+        return food
     }
 
     /// Sucht nach Produkten. Der textbasierte Suchdienst ist bei Open Food Facts
@@ -202,12 +209,14 @@ enum OpenFoodFactsError: LocalizedError {
     case invalidURL
     case httpError
     case invalidResponse
+    case missingNutritionData
 
     var errorDescription: String? {
         switch self {
         case .invalidURL: "Die Open-Food-Facts-Adresse ist ungültig."
         case .httpError: "Open Food Facts ist momentan nicht erreichbar."
         case .invalidResponse: "Open Food Facts hat keine verwertbaren Daten geliefert."
+        case .missingNutritionData: "Für dieses Produkt sind keine ausreichenden Nährwerte hinterlegt."
         }
     }
 }

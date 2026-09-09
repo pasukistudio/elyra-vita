@@ -92,7 +92,7 @@ struct ShoppingListDetailView: View {
                     Button {
                         item.update(isCompleted: !item.isCompleted)
                         list.updatedAt = .now
-                        try? modelContext.save()
+                        PersistenceErrorReporter.save(modelContext, operation: "Einkaufsartikel aktualisieren")
                     } label: {
                         itemRow(item)
                     }
@@ -101,7 +101,7 @@ struct ShoppingListDetailView: View {
                         Button {
                             item.update(isCompleted: !item.isCompleted)
                             list.updatedAt = .now
-                            try? modelContext.save()
+                            PersistenceErrorReporter.save(modelContext, operation: "Einkaufsartikel aktualisieren")
                         } label: {
                             Label(item.isCompleted ? "Offen" : "Erledigt", systemImage: item.isCompleted ? "arrow.uturn.backward" : "checkmark")
                         }
@@ -110,7 +110,7 @@ struct ShoppingListDetailView: View {
                     .swipeActions {
                         Button(role: .destructive) {
                             modelContext.delete(item)
-                            try? modelContext.save()
+                            PersistenceErrorReporter.save(modelContext, operation: "Einkaufsartikel löschen")
                         } label: {
                             Label("Löschen", systemImage: "trash")
                         }
@@ -122,11 +122,11 @@ struct ShoppingListDetailView: View {
                         Button(item.isCompleted ? "Als offen markieren" : "Als erledigt markieren", systemImage: item.isCompleted ? "arrow.uturn.backward" : "checkmark") {
                             item.update(isCompleted: !item.isCompleted)
                             list.updatedAt = .now
-                            try? modelContext.save()
+                            PersistenceErrorReporter.save(modelContext, operation: "Einkaufsartikel aktualisieren")
                         }
                         Button("Löschen", systemImage: "trash", role: .destructive) {
                             modelContext.delete(item)
-                            try? modelContext.save()
+                            PersistenceErrorReporter.save(modelContext, operation: "Einkaufsartikel löschen")
                         }
                     }
                 }
@@ -168,6 +168,6 @@ struct ShoppingListDetailView: View {
 
         previousDayItems.forEach(modelContext.delete)
         list.updatedAt = .now
-        try? modelContext.save()
+        PersistenceErrorReporter.save(modelContext, operation: "Erledigte Einkaufsartikel entfernen")
     }
 }

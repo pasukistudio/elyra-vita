@@ -46,7 +46,8 @@ struct ShoppingListEditorView: View {
             modelContext.insert(ShoppingList(name: trimmedName))
         }
 
-        try? modelContext.save()
-        dismiss()
+        if PersistenceErrorReporter.save(modelContext, operation: "Einkaufsliste speichern") {
+            dismiss()
+        }
     }
 }

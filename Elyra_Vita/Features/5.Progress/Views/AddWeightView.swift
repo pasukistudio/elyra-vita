@@ -283,6 +283,7 @@ struct AddWeightView: View {
                 weightText = ""
                 weightFocused = false
             } catch {
+                modelContext.rollback()
                 logger.error("Gewicht konnte nicht aktualisiert werden: \(error.localizedDescription)")
                 errorMessage = "Die Gewichtsmessung konnte nicht aktualisiert werden."
             }
@@ -316,6 +317,7 @@ struct AddWeightView: View {
             weightText = ""
             weightFocused = false
         } catch {
+            modelContext.rollback()
             logger.error("Gewicht konnte nicht gespeichert werden: \(error.localizedDescription)")
             errorMessage = "Die Gewichtsmessung konnte nicht gespeichert werden."
         }
@@ -335,6 +337,7 @@ struct AddWeightView: View {
             weightText = ""
             weightFocused = false
         } catch {
+            modelContext.rollback()
             logger.error("Gewicht konnte nicht ersetzt werden: \(error.localizedDescription)")
             self.pendingReplacementWeight = nil
             errorMessage = "Die Gewichtsmessung konnte nicht gespeichert werden."
@@ -352,6 +355,7 @@ struct AddWeightView: View {
         do {
             try modelContext.save()
         } catch {
+            modelContext.rollback()
             logger.error("Gewicht konnte nicht gelöscht werden: \(error.localizedDescription)")
             errorMessage = "Der Gewichtseintrag konnte nicht gelöscht werden."
         }

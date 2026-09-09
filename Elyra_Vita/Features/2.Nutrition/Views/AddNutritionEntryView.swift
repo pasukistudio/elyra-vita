@@ -36,7 +36,8 @@ struct AddNutritionEntryView: View {
     @State private var selectedFood: NutritionFood?
     @State private var remoteFoods: [NutritionFood] = []
     @State private var isLoadingRemoteFoods = false
-    @State private var presentedSheet: NutritionSheet?
+    @State private var scannerPresented = false
+    @State private var customFoodSheetPresented = false
     @State private var errorMessage: String?
     @State private var amountText = "100"
     @State private var pieceWeightText = ""
@@ -119,33 +120,7 @@ struct AddNutritionEntryView: View {
             return localFood
         }
 
-        let isPieceEntry = entry.unit == "piece" && entry.pieceWeight > 0
-        let amountFactor: Double
-        if isPieceEntry {
-            amountFactor = entry.pieceWeight / 100
-        } else if entry.unit == "g" || entry.unit == "ml" {
-            amountFactor = max(entry.amount, 1) / 100
-        } else {
-            amountFactor = 1
-        }
-
-        return NutritionFood(
-            id: entry.externalFoodID.isEmpty
-                ? "recent-\(entry.source)-\(entry.foodName)"
-                : entry.externalFoodID,
-            name: entry.foodName,
-            brand: entry.brand,
-            unit: isPieceEntry ? "g" : entry.unit,
-            caloriesPer100: entry.calories / amountFactor,
-            proteinPer100: entry.proteinGrams / amountFactor,
-            carbohydratesPer100: entry.carbohydratesGrams / amountFactor,
-            fatPer100: entry.fatGrams / amountFactor,
-            sugarPer100: entry.sugarGrams / amountFactor,
-            fiberPer100: entry.fiberGrams / amountFactor,
-            saturatedFatPer100: entry.saturatedFatGrams / amountFactor,
-            saltPer100: entry.saltGrams / amountFactor,
-            source: entry.source
-        )
+        return NutritionFood.from(entry: entry)
     }
 
     private var parsedAmount: Double? {
@@ -157,23 +132,46 @@ struct AddNutritionEntryView: View {
         return value
     }
 
+    private func baseUnit(for unit: String) -> String {
+        unit == "piece" ? "g" : unit
+    }
+
     private var selectedUnitOptions: [NutritionUnitOption] {
         guard let selectedFood else { return [] }
+        let baseUnit = baseUnit(for: selectedFood.unit)
         var options = [NutritionUnitOption(
-            id: selectedFood.unit,
-            title: selectedFood.unit == "ml" ? "Milliliter" : "Gramm",
-            symbol: selectedFood.unit,
+            id: baseUnit,
+            title: displayUnitTitle(for: baseUnit),
+            symbol: displayUnitSymbol(for: baseUnit),
             baseAmount: 1
         )]
 
+        // Auch gescannte Produkte ohne gespeichertes Stückgewicht müssen
+        // Stück anbieten können. Das konkrete Gewicht wird darunter erfasst.
         options.append(NutritionUnitOption(
             id: "piece",
             title: "Stück",
             symbol: "Stück",
-            baseAmount: pieceWeight ?? 0
+            baseAmount: pieceWeight ?? 1
         ))
 
         return options
+    }
+
+    private func displayUnitTitle(for unit: String) -> String {
+        switch unit {
+        case "piece": return "Stück"
+        case "ml": return "Milliliter"
+        default: return "Gramm"
+        }
+    }
+
+    private func displayUnitSymbol(for unit: String) -> String {
+        switch unit {
+        case "piece": return "Stück"
+        case "ml": return "ml"
+        default: return "g"
+        }
     }
 
     // MARK: - Mengenanzeige
@@ -253,7 +251,7 @@ struct AddNutritionEntryView: View {
                                     .textInputAutocapitalization(.never)
 
                                 Button {
-                                    presentedSheet = .scanner
+                                    scannerPresented = true
                                 } label: {
                                     Image(systemName: "barcode.viewfinder")
                                         .font(.title3)
@@ -265,7 +263,7 @@ struct AddNutritionEntryView: View {
                             Divider()
 
                             Button {
-                                presentedSheet = .customFood
+                                customFoodSheetPresented = true
                             } label: {
                                 Label("Eigenes Lebensmittel anlegen", systemImage: "plus.circle")
                                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -396,6 +394,14 @@ struct AddNutritionEntryView: View {
                     foodFilter = .all
                 }
             }
+            .onChange(of: scannerPresented) { _, isPresented in
+                if isPresented {
+                    // Der Scanner ist ein eigener Flow. Ein eventuell noch
+                    // vorhandener Custom-Food-Zustand darf ihn niemals
+                    // überlagern.
+                    customFoodSheetPresented = false
+                }
+            }
             .onChange(of: amountText) { _, newValue in
                 guard let selectedFood,
                       let amount = parsedNumber(newValue),
@@ -405,7 +411,7 @@ struct AddNutritionEntryView: View {
             .onChange(of: selectedUnit) { _, newUnit in
                 guard let selectedFood else { return }
                 if entryToEdit == nil {
-                    amountText = newUnit == selectedFood.unit ? "100" : "1"
+                    amountText = newUnit == baseUnit(for: selectedFood.unit) ? "100" : "1"
                 }
                 guard let amount = parsedNumber(amountText) else { return }
                 setNutritionFields(for: selectedFood, amount: amount, unit: newUnit)
@@ -419,30 +425,33 @@ struct AddNutritionEntryView: View {
                       amount > 0 else { return }
                 setNutritionFields(for: selectedFood, amount: amount, unit: selectedUnit)
             }
-            .sheet(item: $presentedSheet) { sheet in
-                switch sheet {
-                case .scanner:
-                    BarcodeScannerView(
-                        onBarcode: { barcode in
-                            presentedSheet = nil
-                            Task { await loadBarcode(barcode) }
-                        },
-                        onUnavailable: {
-                            presentedSheet = nil
-                            errorMessage = "Der Barcode-Scanner ist auf diesem Gerät nicht verfügbar."
+            .fullScreenCover(isPresented: $scannerPresented) {
+                BarcodeScannerView(
+                    onBarcode: { barcode in
+                        scannerPresented = false
+                        Task { @MainActor in
+                            // Erst den Scanner vollständig schließen, danach
+                            // Produkt übernehmen oder bei keinem Treffer das
+                            // eigene Lebensmittel gezielt öffnen.
+                            try? await Task.sleep(for: .milliseconds(350))
+                            await loadBarcode(barcode)
                         }
-                    )
-                    .ignoresSafeArea()
-
-                case .customFood:
-                    AddCustomFoodView { food in
-                        selectFood(food)
-                        presentedSheet = nil
+                    },
+                    onUnavailable: {
+                        scannerPresented = false
+                        errorMessage = "Der Barcode-Scanner ist auf diesem Gerät nicht verfügbar."
                     }
-                    .presentationDetents([.large])
-                    .presentationBackground(Color(.systemBackground))
-                    .presentationDragIndicator(.visible)
+                )
+                .ignoresSafeArea()
+            }
+            .sheet(isPresented: $customFoodSheetPresented) {
+                AddCustomFoodView { food in
+                    selectFood(food)
+                    customFoodSheetPresented = false
                 }
+                .presentationDetents([.large])
+                .presentationBackground(Color(.systemBackground))
+                .presentationDragIndicator(.visible)
             }
             .alert("Lebensmittel nicht gefunden", isPresented: Binding(
                 get: { errorMessage != nil },
@@ -499,8 +508,8 @@ struct AddNutritionEntryView: View {
         pieceWeightText = savedPieceWeight.map(editableNumber) ?? food.pieceWeight.map(editableNumber) ?? ""
         searchText = ""
         amountText = "100"
-        selectedUnit = food.unit
-        setNutritionFields(for: food, amount: 100, unit: food.unit)
+        selectedUnit = baseUnit(for: food.unit)
+        setNutritionFields(for: food, amount: 100, unit: selectedUnit)
     }
 
     private func isFavorite(_ food: NutritionFood) -> Bool {
@@ -566,8 +575,10 @@ struct AddNutritionEntryView: View {
         do {
             remoteFoods = try await OpenFoodFactsService().search(query)
         } catch {
-            // Eine nicht erreichbare Datenbank darf die lokale Erfassung nicht blockieren.
+            // Lokale Lebensmittel bleiben nutzbar, der Nutzer erhält aber
+            // einen klaren Hinweis statt einer irreführenden leeren Suche.
             remoteFoods = []
+            errorMessage = "Die Online-Lebensmittelsuche ist momentan nicht erreichbar. Lokale Lebensmittel kannst du weiterhin verwenden."
         }
     }
 
@@ -575,10 +586,14 @@ struct AddNutritionEntryView: View {
     private func loadBarcode(_ barcode: String) async {
         do {
             guard let food = try await OpenFoodFactsService().product(for: barcode) else {
-                errorMessage = "Für diesen Barcode wurden keine verwertbaren Nährwerte gefunden."
+                // Nur ein tatsächlich unbekannter Barcode öffnet das eigene
+                // Lebensmittel. Netzwerk- oder Scannerfehler bleiben Alerts.
+                customFoodSheetPresented = true
                 return
             }
 
+            // Ein Treffer beendet jeden eventuell veralteten Fallback-Zustand.
+            customFoodSheetPresented = false
             selectFood(food)
         } catch {
             errorMessage = error.localizedDescription
@@ -631,7 +646,7 @@ struct AddNutritionEntryView: View {
                 $0.id == entryToEdit.externalFoodID
             } ?? customFoods.map(\.nutritionFood).first {
                 $0.name == entryToEdit.foodName
-            }
+            } ?? nutritionFood(for: entryToEdit)
             selectedUnit = entryToEdit.unit
             pieceWeightText = entryToEdit.pieceWeight > 0 ? editableNumber(entryToEdit.pieceWeight) : ""
             if let selectedFood,
@@ -643,8 +658,9 @@ struct AddNutritionEntryView: View {
             selectedMealType = initialMealType
             if let initialFood {
                 pieceWeightText = initialFood.pieceWeight.map(editableNumber) ?? ""
-                selectedUnit = initialFood.unit
-                setNutritionFields(for: initialFood, amount: 100, unit: initialFood.unit)
+                selectedUnit = baseUnit(for: initialFood.unit)
+                amountText = "100"
+                setNutritionFields(for: initialFood, amount: 100, unit: selectedUnit)
             }
         }
     }
@@ -710,21 +726,15 @@ struct AddNutritionEntryView: View {
             )
         }
 
-        try? modelContext.save()
-        dismiss()
+        if PersistenceErrorReporter.save(modelContext, operation: "Ernährungseintrag speichern") {
+            dismiss()
+        }
     }
 }
 
 #Preview {
     AddNutritionEntryView(selectedDate: .now, accentColor: .orange)
         .modelContainer(for: [NutritionEntry.self, CustomFood.self, FavoriteFood.self], inMemory: true)
-}
-
-private enum NutritionSheet: Identifiable {
-    case scanner
-    case customFood
-
-    var id: Self { self }
 }
 
 private enum FoodFilter: String, CaseIterable, Identifiable {

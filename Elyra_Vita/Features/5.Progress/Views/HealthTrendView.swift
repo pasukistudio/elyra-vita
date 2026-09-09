@@ -279,6 +279,7 @@ struct HealthTrendView: View {
         do {
             try modelContext.save()
         } catch {
+            modelContext.rollback()
             self.errorMessage = errorMessage
         }
     }

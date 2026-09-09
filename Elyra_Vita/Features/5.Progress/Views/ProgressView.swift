@@ -324,7 +324,7 @@ struct ProgressView: View {
         guard let entryToDelete else { return }
         modelContext.delete(entryToDelete)
         self.entryToDelete = nil
-        try? modelContext.save()
+        PersistenceErrorReporter.save(modelContext, operation: "Gewichtseintrag löschen")
     }
 }
 
