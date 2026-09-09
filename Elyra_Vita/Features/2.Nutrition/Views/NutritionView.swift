@@ -31,6 +31,9 @@ struct NutritionView: View {
     @State private var editingEntry: NutritionEntry?
     @State private var deletingEntry: NutritionEntry?
     @State private var favoriteErrorMessage: String?
+    @State private var isSelectingEntries = false
+    @State private var selectedEntryIDs = Set<ObjectIdentifier>()
+    @State private var showingRecipeEditor = false
 
     private var dayEntries: [NutritionEntry] {
         entries
@@ -124,7 +127,28 @@ struct NutritionView: View {
                     }
                 }
             } header: {
-                Text("Tageslogbuch")
+                HStack {
+                    Text("Tageslogbuch")
+                    Spacer()
+                    Button(isSelectingEntries ? "Abbrechen" : "Auswählen") {
+                        isSelectingEntries.toggle()
+                        if !isSelectingEntries { selectedEntryIDs.removeAll() }
+                    }
+                    .font(.subheadline.weight(.semibold))
+                }
+            }
+
+            if isSelectingEntries && !selectedEntryIDs.isEmpty {
+                Section {
+                    Button {
+                        showingRecipeEditor = true
+                    } label: {
+                        Label("Als Rezept speichern", systemImage: "book.badge.plus")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                } footer: {
+                    Text("Die ausgewählten Lebensmittel und Mengen werden in den Rezepteditor übernommen.")
+                }
             }
         }
         .listStyle(.insetGrouped)
@@ -153,6 +177,17 @@ struct NutritionView: View {
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
             .presentationBackground(Color(.systemBackground))
+        }
+        .sheet(isPresented: $showingRecipeEditor, onDismiss: {
+            isSelectingEntries = false
+            selectedEntryIDs.removeAll()
+        }) {
+            RecipeEditorView(
+                ingredients: recipeIngredients,
+                defaultTitle: "Meine Mahlzeit",
+                defaultServings: 1,
+                prefilledNutrition: recipeNutrition
+            )
         }
     }
 
@@ -225,7 +260,13 @@ struct NutritionView: View {
     // MARK: - Logbuch
 
     private func entryRow(_ entry: NutritionEntry) -> some View {
-        HStack(spacing: 12) {
+        let isSelected = selectedEntryIDs.contains(ObjectIdentifier(entry))
+        return HStack(spacing: 12) {
+            if isSelectingEntries {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(isSelected ? accentColor : .secondary)
+                    .font(.title3)
+            }
             Image(systemName: entry.mealType.icon)
                 .foregroundStyle(accentColor)
                 .frame(width: 32, height: 32)
@@ -249,7 +290,8 @@ struct NutritionView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Menu {
+            if !isSelectingEntries {
+                Menu {
                 Button(
                     isFavorite(entry)
                         ? "Aus Favoriten entfernen"
@@ -268,10 +310,43 @@ struct NutritionView: View {
                 Image(systemName: "ellipsis.circle")
                     .font(.title3)
                     .foregroundStyle(.secondary)
+                }
+                .accessibilityLabel("Aktionen für \(entry.foodName)")
             }
-            .accessibilityLabel("Aktionen für \(entry.foodName)")
         }
         .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard isSelectingEntries else { return }
+            let id = ObjectIdentifier(entry)
+            if isSelected { selectedEntryIDs.remove(id) } else { selectedEntryIDs.insert(id) }
+        }
+    }
+
+    private var selectedEntries: [NutritionEntry] {
+        dayEntries.filter { selectedEntryIDs.contains(ObjectIdentifier($0)) }
+    }
+
+    private var recipeIngredients: [RecipeIngredient] {
+        selectedEntries.enumerated().map { index, entry in
+            RecipeIngredient(
+                recipeID: UUID(),
+                name: entry.foodName,
+                amount: entry.amount.formatted(.number.precision(.fractionLength(0...2))),
+                unit: displayUnit(for: entry.unit),
+                position: index
+            )
+        }
+    }
+
+    private var recipeNutrition: RecipeNutritionTotals {
+        RecipeNutritionTotals(
+            calories: selectedEntries.reduce(0) { $0 + $1.calories },
+            protein: selectedEntries.reduce(0) { $0 + $1.proteinGrams },
+            carbohydrates: selectedEntries.reduce(0) { $0 + $1.carbohydratesGrams },
+            fat: selectedEntries.reduce(0) { $0 + $1.fatGrams },
+            recognizedIngredients: selectedEntries.count
+        )
     }
 
     // MARK: - Änderungen

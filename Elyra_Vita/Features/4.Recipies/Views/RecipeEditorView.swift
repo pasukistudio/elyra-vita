@@ -31,19 +31,26 @@ struct RecipeEditorView: View {
     @State private var fatPerServingText = ""
     @State private var nutritionMessage: String?
 
-    @MainActor init(recipe: Recipe? = nil, ingredients: [RecipeIngredient] = [], steps: [RecipeStep] = []) {
+    @MainActor init(
+        recipe: Recipe? = nil,
+        ingredients: [RecipeIngredient] = [],
+        steps: [RecipeStep] = [],
+        defaultTitle: String = "",
+        defaultServings: Int = 2,
+        prefilledNutrition: RecipeNutritionTotals? = nil
+    ) {
         self.recipe = recipe
-        _title = State(initialValue: recipe?.title ?? "")
+        _title = State(initialValue: recipe?.title ?? defaultTitle)
         _note = State(initialValue: recipe?.note ?? "")
-        _servings = State(initialValue: recipe?.servings ?? 2)
+        _servings = State(initialValue: recipe?.servings ?? defaultServings)
         _prepMinutes = State(initialValue: recipe?.prepMinutes ?? 0)
         _category = State(initialValue: recipe?.category ?? "")
         _imageURL = State(initialValue: recipe?.imageURL ?? "")
         _sourceURL = State(initialValue: recipe?.sourceURL ?? "")
-        _caloriesPerServingText = State(initialValue: recipe.map { Self.number($0.caloriesPerServing) } ?? "")
-        _proteinPerServingText = State(initialValue: recipe.map { Self.number($0.proteinPerServing) } ?? "")
-        _carbohydratesPerServingText = State(initialValue: recipe.map { Self.number($0.carbohydratesPerServing) } ?? "")
-        _fatPerServingText = State(initialValue: recipe.map { Self.number($0.fatPerServing) } ?? "")
+        _caloriesPerServingText = State(initialValue: recipe.map { Self.number($0.caloriesPerServing) } ?? prefilledNutrition.map { Self.number($0.calories) } ?? "")
+        _proteinPerServingText = State(initialValue: recipe.map { Self.number($0.proteinPerServing) } ?? prefilledNutrition.map { Self.number($0.protein) } ?? "")
+        _carbohydratesPerServingText = State(initialValue: recipe.map { Self.number($0.carbohydratesPerServing) } ?? prefilledNutrition.map { Self.number($0.carbohydrates) } ?? "")
+        _fatPerServingText = State(initialValue: recipe.map { Self.number($0.fatPerServing) } ?? prefilledNutrition.map { Self.number($0.fat) } ?? "")
         _ingredients = State(initialValue: ingredients.sorted { $0.position < $1.position }.map(IngredientDraft.init))
         _steps = State(initialValue: steps.sorted { $0.position < $1.position }.map(StepDraft.init))
     }

@@ -16,7 +16,7 @@ struct AddNutritionEntryView: View {
     @Query(sort: \CustomFood.name)
     private var customFoods: [CustomFood]
 
-    @Query(sort: \NutritionEntry.date, order: .reverse)
+    @Query(sort: \NutritionEntry.updatedAt, order: .reverse)
     private var nutritionEntries: [NutritionEntry]
 
     @Query(sort: \FavoriteFood.updatedAt, order: .reverse)
@@ -52,6 +52,7 @@ struct AddNutritionEntryView: View {
     @State private var saturatedFatText = ""
     @State private var saltText = ""
     @State private var foodFilter: FoodFilter = .all
+    @State private var savedFoodCount = 0
 
     private var filteredFoods: [NutritionFood] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -100,7 +101,9 @@ struct AddNutritionEntryView: View {
             return nutritionFood(for: entry)
         }
 
-        return Array(foods.prefix(5))
+        // Zwölf Einträge bieten eine brauchbare Verlaufsauswahl, ohne die
+        // Lebensmittelauswahl mit einer endlosen Liste zu überladen.
+        return Array(foods.prefix(12))
     }
 
     /// Rekonstruiert ein Lebensmittel aus einem gespeicherten Verzehr.
@@ -125,6 +128,18 @@ struct AddNutritionEntryView: View {
 
     private var parsedAmount: Double? {
         parsedNumber(amountText)
+    }
+
+    private var canSaveCurrentFood: Bool {
+        selectedFood != nil
+            && (parsedAmount ?? 0) > 0
+            && nutritionValues != nil
+            && (selectedUnit != "piece" || pieceWeight != nil)
+    }
+
+    private var canFinish: Bool {
+        if entryToEdit != nil { return canSaveCurrentFood }
+        return selectedFood == nil ? savedFoodCount > 0 : canSaveCurrentFood
     }
 
     private var pieceWeight: Double? {
@@ -235,6 +250,10 @@ struct AddNutritionEntryView: View {
             Form {
                 if selectedFood == nil {
                     Section {
+                        if savedFoodCount > 0 {
+                            Label("\(savedFoodCount) Lebensmittel erfasst", systemImage: "checkmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
                         VStack(spacing: 12) {
                             Picker("Lebensmittel anzeigen", selection: $foodFilter) {
                                 ForEach(FoodFilter.allCases) { filter in
@@ -366,6 +385,23 @@ struct AddNutritionEntryView: View {
                         nutrientField("Gesättigte Fettsäuren", text: $saturatedFatText, unit: "g")
                         nutrientField("Salz", text: $saltText, unit: "g")
                     }
+
+                    if entryToEdit == nil {
+                        Section {
+                            if savedFoodCount > 0 {
+                                Text("\(savedFoodCount) Lebensmittel erfasst")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Button("Weiteres Lebensmittel hinzufügen", systemImage: "plus") {
+                                save(finishBatch: false)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .frame(maxWidth: .infinity)
+                        } footer: {
+                            Text("Das aktuelle Lebensmittel wird gespeichert und du kannst direkt das nächste scannen oder auswählen.")
+                        }
+                    }
                 }
             }
             .navigationTitle(entryToEdit == nil ? "Mahlzeit erfassen" : "Mahlzeit bearbeiten")
@@ -376,13 +412,14 @@ struct AddNutritionEntryView: View {
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Speichern") { save() }
-                        .disabled(
-                            selectedFood == nil
-                                || (parsedAmount ?? 0) <= 0
-                                || nutritionValues == nil
-                                || (selectedUnit == "piece" && pieceWeight == nil)
-                        )
+                    Button(entryToEdit == nil && savedFoodCount > 0 ? "Fertig" : "Speichern") {
+                        if selectedFood == nil && entryToEdit == nil {
+                            dismiss()
+                        } else {
+                            save(finishBatch: true)
+                        }
+                    }
+                        .disabled(!canFinish)
                 }
             }
             .onAppear(perform: prepareForEditing)
@@ -502,14 +539,29 @@ struct AddNutritionEntryView: View {
     }
 
     private func selectFood(_ food: NutritionFood) {
-        let savedPieceWeight = favoriteFoods.first(where: { $0.id == food.id })?.pieceWeight
+        let recentEntry = recentlyUsedEntry(for: food)
+        let savedPieceWeight = recentEntry.flatMap { $0.pieceWeight > 0 ? $0.pieceWeight : nil }
+            ?? favoriteFoods.first(where: { $0.id == food.id })?.pieceWeight
             ?? nutritionEntries.first(where: { $0.externalFoodID == food.id && $0.pieceWeight > 0 })?.pieceWeight
         selectedFood = food
         pieceWeightText = savedPieceWeight.map(editableNumber) ?? food.pieceWeight.map(editableNumber) ?? ""
         searchText = ""
-        amountText = "100"
-        selectedUnit = baseUnit(for: food.unit)
-        setNutritionFields(for: food, amount: 100, unit: selectedUnit)
+        amountText = recentEntry.map { editableNumber($0.amount) } ?? "100"
+        let rememberedUnit = recentEntry?.unit ?? baseUnit(for: food.unit)
+        selectedUnit = selectedUnitOptions.contains(where: { $0.id == rememberedUnit })
+            ? rememberedUnit
+            : baseUnit(for: food.unit)
+        let amount = parsedAmount ?? 100
+        setNutritionFields(for: food, amount: amount, unit: selectedUnit)
+    }
+
+    private func recentlyUsedEntry(for food: NutritionFood) -> NutritionEntry? {
+        nutritionEntries.first {
+            if !$0.externalFoodID.isEmpty {
+                return $0.externalFoodID == food.id
+            }
+            return $0.foodName.localizedCaseInsensitiveCompare(food.name) == .orderedSame
+        }
     }
 
     private func isFavorite(_ food: NutritionFood) -> Bool {
@@ -665,7 +717,7 @@ struct AddNutritionEntryView: View {
         }
     }
 
-    private func save() {
+    private func save(finishBatch: Bool) {
         guard let selectedFood,
               let amount = parsedAmount,
               amount > 0,
@@ -727,8 +779,30 @@ struct AddNutritionEntryView: View {
         }
 
         if PersistenceErrorReporter.save(modelContext, operation: "Ernährungseintrag speichern") {
-            dismiss()
+            if entryToEdit != nil || finishBatch {
+                dismiss()
+            } else {
+                savedFoodCount += 1
+                resetForNextFood()
+            }
         }
+    }
+
+    private func resetForNextFood() {
+        selectedFood = nil
+        searchText = ""
+        remoteFoods = []
+        amountText = "100"
+        pieceWeightText = ""
+        selectedUnit = "g"
+        caloriesText = ""
+        proteinText = ""
+        carbohydratesText = ""
+        fatText = ""
+        sugarText = ""
+        fiberText = ""
+        saturatedFatText = ""
+        saltText = ""
     }
 }
 
