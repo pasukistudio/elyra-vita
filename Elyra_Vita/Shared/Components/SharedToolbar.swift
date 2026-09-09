@@ -78,49 +78,62 @@ struct SharedToolbar: ToolbarContent {
     let menuActions: [SharedToolbarAction]
     let onMenuAction: (SharedToolbarAction) -> Void
     let onSettings: () -> Void
+    let isVisible: Bool
 
     // MARK: - Toolbar-Inhalt
 
     var body: some ToolbarContent {
         // Linke Seite: Einstellungen oeffnen.
         ToolbarItem(placement: .topBarLeading) {
-            Button(action: onSettings) {
-                Image(systemName: "person.fill")
+            if isVisible {
+                Button(action: onSettings) {
+                    Image(systemName: "person.fill")
+                }
+                .accessibilityLabel("Einstellungen")
+            } else {
+                Color.clear.frame(width: 1, height: 1)
             }
-            .accessibilityLabel("Einstellungen")
         }
 
         // Mitte: Durch Tage navigieren und ein Datum auswaehlen.
         ToolbarItem(placement: .principal) {
-            DateNavigationControl(
-                title: title,
-                labels: .init(
-                    previous: "Vorheriger Tag",
-                    selection: "Datum auswählen",
-                    next: "Nächster Tag"
-                ),
-                onPrevious: onPrevious,
-                onSelect: onSelectDate,
-                onNext: onNext
-            )
+            if isVisible {
+                DateNavigationControl(
+                    title: title,
+                    labels: .init(
+                        previous: "Vorheriger Tag",
+                        selection: "Datum auswählen",
+                        next: "Nächster Tag"
+                    ),
+                    onPrevious: onPrevious,
+                    onSelect: onSelectDate,
+                    onNext: onNext
+                )
+            } else {
+                Color.clear.frame(width: 1, height: 1)
+            }
         }
 
         // Rechte Seite: die für den aktiven Bereich konfigurierten Aktionen.
         ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                ForEach(menuActions) { action in
-                    Button {
-                        onMenuAction(action)
-                    } label: {
-                        Label(action.title, systemImage: action.systemImage)
+            if isVisible {
+                Menu {
+                    ForEach(menuActions) { action in
+                        Button {
+                            onMenuAction(action)
+                        } label: {
+                            Label(action.title, systemImage: action.systemImage)
+                        }
+                        .accessibilityIdentifier("toolbar.action.\(action.rawValue)")
                     }
-                    .accessibilityIdentifier("toolbar.action.\(action.rawValue)")
+                } label: {
+                    Image(systemName: "plus")
                 }
-            } label: {
-                Image(systemName: "plus")
+                .accessibilityLabel("Eintrag hinzufügen")
+                .accessibilityIdentifier("toolbar.addMenu")
+            } else {
+                Color.clear.frame(width: 1, height: 1)
             }
-            .accessibilityLabel("Eintrag hinzufügen")
-            .accessibilityIdentifier("toolbar.addMenu")
         }
     }
 }

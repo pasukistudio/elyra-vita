@@ -79,7 +79,12 @@ struct Elyra_VitaApp: App {
                 TodoList.self,
                 TodoTask.self,
                 Habit.self,
-                HabitCompletion.self
+                HabitCompletion.self,
+                Recipe.self,
+                RecipeIngredient.self,
+                RecipeStep.self,
+                RecipeBook.self,
+                RecipeBookMembership.self
         ])
 
         // Die Daten bleiben auch nach dem Neustart der App erhalten.

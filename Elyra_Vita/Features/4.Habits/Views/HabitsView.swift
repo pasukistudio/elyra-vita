@@ -73,12 +73,6 @@ struct HabitsView: View {
         .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("Gewohnheiten")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { showingNewHabit = true } label: { Image(systemName: "plus") }
-                    .accessibilityLabel("Neue Gewohnheit")
-            }
-        }
         .sheet(isPresented: $showingNewHabit) { HabitEditorView().presentationDetents([.medium, .large]) }
         .sheet(item: $editingHabit) { HabitEditorView(habit: $0).presentationDetents([.medium, .large]) }
         .alert("Gewohnheit löschen?", isPresented: deletingAlert, presenting: deletingHabit) { habit in
@@ -134,7 +128,7 @@ struct HabitsView: View {
             }
             SwiftUI.ProgressView(value: progressTotal == 0 ? 0 : Double(completedCount), total: Double(max(progressTotal, 1))).tint(.green)
         }
-        .padding(18).background(.background, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .padding(18).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .shadow(color: .black.opacity(0.04), radius: 12, y: 5)
     }
 
@@ -202,7 +196,7 @@ struct HabitsView: View {
                 }
             }
         }
-        .padding(16).background(.background, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(16).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .contentShape(Rectangle()).contextMenu {
             Button("Bearbeiten", systemImage: "pencil") { editingHabit = habit }
             Button("Löschen", systemImage: "trash", role: .destructive) { deletingHabit = habit }

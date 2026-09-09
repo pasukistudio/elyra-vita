@@ -79,6 +79,7 @@ struct ContentView: View {
     /// Steuert das Anlegen einer To-do-Liste aus der Planning-Toolbar.
     @State private var showingNewTodoList = false
     @State private var showingNewHabit = false
+    @State private var selectedPlanningArea: PlanningArea = .habits
     @State private var persistenceErrorMessage: String?
     @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \Habit.updatedAt, order: .reverse) private var habits: [Habit]
@@ -102,8 +103,15 @@ struct ContentView: View {
             .toolbar {
                 sharedToolbar
             }
+            .toolbar(
+                selectedSection == .overview || selectedSection == .nutrition
+                    ? .visible
+                    : .hidden,
+                for: .navigationBar
+            )
             .navigationBarTitleDisplayMode(.inline)
             .tint(selectedAccentColor)
+            .environment(\.elyraAccentColor, selectedAccentColor)
             .preferredColorScheme(preferredColorScheme)
             .navigationDestination(isPresented: $showingSettings) {
                 SettingsView()
@@ -193,52 +201,28 @@ struct ContentView: View {
     /// Die Toolbar wird je nach aktivem Tab angepasst.
     @ToolbarContentBuilder
     private var sharedToolbar: some ToolbarContent {
-        if selectedSection == .overview ||
-            selectedSection == .nutrition {
-            SharedToolbar(
-                title: dateTitle,
-                onPrevious: {
-                    moveSelectedDate(by: -1)
-                },
-                onSelectDate: {
-                    showingDatePicker = true
-                },
-                onNext: {
-                    moveSelectedDate(by: 1)
-                },
-                menuActions: selectedSection == .overview
-                    ? SharedToolbarAction.overview
-                    : SharedToolbarAction.nutrition,
-                onMenuAction: { action in
-                    handleToolbarAction(action)
-                },
-                onSettings: {
-                    showingSettings = true
-                }
-            )
-        } else if selectedSection == .planning {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button {
-                        showingNewShoppingList = true
-                    } label: {
-                        Label("Neue Einkaufsliste", systemImage: "cart")
-                    }
-                    Button {
-                        showingNewTodoList = true
-                    } label: {
-                        Label("Neue To-do-Liste", systemImage: "checklist")
-                    }
-                    Button {
-                        showingNewHabit = true
-                    } label: {
-                        Label("Neue Gewohnheit", systemImage: "checkmark.circle")
-                    }
-                } label: {
-                    Label("Neue Liste", systemImage: "plus")
-                }
-            }
-        }
+        SharedToolbar(
+            title: dateTitle,
+            onPrevious: {
+                moveSelectedDate(by: -1)
+            },
+            onSelectDate: {
+                showingDatePicker = true
+            },
+            onNext: {
+                moveSelectedDate(by: 1)
+            },
+            menuActions: selectedSection == .overview
+                ? SharedToolbarAction.overview
+                : SharedToolbarAction.nutrition,
+            onMenuAction: { action in
+                handleToolbarAction(action)
+            },
+            onSettings: {
+                showingSettings = true
+            },
+            isVisible: selectedSection == .overview || selectedSection == .nutrition
+        )
     }
 
     // MARK: - Toolbar-Aktionen
@@ -315,6 +299,7 @@ struct ContentView: View {
     /// Der Planungs-Tab.
     private var planning: some View {
         PlanningView(
+            selectedArea: $selectedPlanningArea,
             showingNewList: $showingNewShoppingList,
             showingNewTodoList: $showingNewTodoList,
             showingNewHabit: $showingNewHabit
