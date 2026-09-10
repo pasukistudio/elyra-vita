@@ -16,13 +16,20 @@ struct RecipeNutritionTotals {
 }
 
 struct RecipeNutritionCalculator {
-    func calculate(ingredients: [RecipeIngredientValue], foods: [NutritionFood], servings: Int) -> RecipeNutritionTotals {
+    func calculate(
+        ingredients: [RecipeIngredientValue],
+        foods: [NutritionFood],
+        servings: Int
+    ) -> RecipeNutritionTotals {
         var totals = RecipeNutritionTotals()
         for ingredient in ingredients {
             guard let food = bestMatch(for: ingredient.name, in: foods),
                   let amount = parseAmount(ingredient.amount), amount > 0,
-                  let baseAmount = baseAmount(amount: amount, unit: ingredient.unit, food: food) else {
-                if !ingredient.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { totals.unrecognizedIngredients += 1 }
+                  let baseAmount = baseAmount(amount: amount, unit: ingredient.unit, food: food)
+            else {
+                if !ingredient.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    totals.unrecognizedIngredients += 1
+                }
                 continue
             }
 
@@ -70,10 +77,17 @@ struct RecipeNutritionCalculator {
     }
 
     private func parseAmount(_ text: String) -> Double? {
-        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: ",", with: ".")
-        if let value = Double(cleaned) { return value }
+        let cleaned = text
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: ",", with: ".")
+        if let value = Double(cleaned) {
+            return value
+        }
         let parts = cleaned.split(separator: "/")
-        guard parts.count == 2, let numerator = Double(parts[0].trimmingCharacters(in: .whitespaces)), let denominator = Double(parts[1].trimmingCharacters(in: .whitespaces)), denominator != 0 else { return nil }
+        guard parts.count == 2,
+              let numerator = Double(parts[0].trimmingCharacters(in: .whitespaces)),
+              let denominator = Double(parts[1].trimmingCharacters(in: .whitespaces)),
+              denominator != 0 else { return nil }
         return numerator / denominator
     }
 

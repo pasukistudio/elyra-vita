@@ -1,14 +1,14 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct TodoListDetailView: View {
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.modelContext) var modelContext
     @Query private var allTasks: [TodoTask]
     @State private var showingNewTask = false
-    @State private var editingTask: TodoTask?
+    @State var editingTask: TodoTask?
     @State private var inlineTitle = ""
     @State private var completedTasksExpanded = true
-    @State private var pendingTaskDeletion: TodoTask?
+    @State var pendingTaskDeletion: TodoTask?
     @FocusState private var inlineTitleFocused: Bool
 
     let list: TodoList
@@ -17,7 +17,10 @@ struct TodoListDetailView: View {
         self.list = list
     }
 
-    private var tasks: [TodoTask] { allTasks.filter { $0.listID == list.id } }
+    private var tasks: [TodoTask] {
+        allTasks.filter { $0.listID == list.id }
+    }
+
     private var openTasks: [TodoTask] {
         tasks
             .filter { !$0.isCompleted }
@@ -36,6 +39,7 @@ struct TodoListDetailView: View {
                 }
             }
     }
+
     private var completedTasks: [TodoTask] {
         tasks
             .filter(\.isCompleted)
@@ -153,81 +157,20 @@ struct TodoListDetailView: View {
         inlineTitleFocused = true
     }
 
-    private func taskRow(_ task: TodoTask) -> some View {
-        HStack(spacing: 12) {
-            Button {
-                task.update(isCompleted: !task.isCompleted)
-                list.updatedAt = .now
-                PersistenceErrorReporter.save(modelContext, operation: "To-do aktualisieren")
-            } label: {
-                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(task.isCompleted ? .green : .secondary)
-            }
-            .buttonStyle(.plain)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(task.title)
-                    .strikethrough(task.isCompleted)
-                    .foregroundStyle(task.isCompleted ? .secondary : .primary)
-                if !task.note.isEmpty {
-                    Text(task.note)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                if let dueDate = task.dueDate, !task.isCompleted {
-                    let isOverdue = dueDate < Calendar.current.startOfDay(for: .now)
-                    Label {
-                        if isOverdue {
-                            Text("Überfällig")
-                        } else {
-                            Text(dueDate, style: .date)
-                        }
-                    } icon: {
-                        Image(systemName: isOverdue ? "exclamationmark.triangle.fill" : "calendar")
-                    }
-                    .font(.caption2.weight(isOverdue ? .semibold : .regular))
-                    .foregroundStyle(isOverdue ? .red : .secondary)
-                }
-            }
-
-            Spacer()
-            priorityIndicator(task.priority)
-        }
-        .contentShape(Rectangle())
-        .onTapGesture { editingTask = task }
-        .swipeActions {
-            Button("Bearbeiten", systemImage: "pencil") { editingTask = task }
-                .tint(.blue)
-            Button(role: .destructive) {
-                pendingTaskDeletion = task
-            } label: {
-                Label("Löschen", systemImage: "trash")
-            }
-        }
-        .contextMenu {
-            Button("Bearbeiten", systemImage: "pencil") {
-                editingTask = task
-            }
-            Button(
-                task.isCompleted ? "Als offen markieren" : "Als erledigt markieren",
-                systemImage: task.isCompleted ? "arrow.uturn.backward" : "checkmark"
-            ) {
-                task.update(isCompleted: !task.isCompleted)
-                list.updatedAt = .now
-                PersistenceErrorReporter.save(modelContext, operation: "To-do aktualisieren")
-            }
-            Button("Löschen", systemImage: "trash", role: .destructive) {
-                pendingTaskDeletion = task
-            }
-        }
+    func toggleCompletion(for task: TodoTask) {
+        task.update(isCompleted: !task.isCompleted)
+        list.updatedAt = .now
+        PersistenceErrorReporter.save(modelContext, operation: "To-do aktualisieren")
     }
 
     private var deletionAlertIsPresented: Binding<Bool> {
         Binding(
             get: { pendingTaskDeletion != nil },
-            set: { if !$0 { pendingTaskDeletion = nil } }
+            set: {
+                if !$0 {
+                    pendingTaskDeletion = nil
+                }
+            }
         )
     }
 
@@ -240,19 +183,5 @@ struct TodoListDetailView: View {
         }
         list.updatedAt = .now
         PersistenceErrorReporter.save(modelContext, operation: "To-do sortieren")
-    }
-
-    @ViewBuilder
-    private func priorityIndicator(_ priority: Int) -> some View {
-        switch priority {
-        case 2:
-            Image(systemName: "exclamationmark.2")
-                .foregroundStyle(.red)
-        case 0:
-            Image(systemName: "arrow.down")
-                .foregroundStyle(.secondary)
-        default:
-            EmptyView()
-        }
     }
 }

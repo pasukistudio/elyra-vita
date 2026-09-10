@@ -1,20 +1,19 @@
-import SwiftUI
-import SwiftData
 import PasukiUI
+import SwiftData
+import SwiftUI
 
 // MARK: - Elyra_VitaApp
 
 /// Einstiegspunkt der App und Besitzer des gemeinsamen SwiftData-Containers.
 @main
 struct Elyra_VitaApp: App {
-
     // MARK: - StoreKit / Pro
 
     /// Produktzuordnung der App. Die ID muss in App Store Connect exakt
     /// dieselbe Schreibweise verwenden.
     private static let proConfiguration = PasukiProProductConfiguration(
         featureByProductIdentifier: [
-            "de.pasukistudio.elyra-vita.pro": .customAccentColor
+            "de.pasukistudio.elyra-vita.pro": .customAccentColor,
         ]
     )
 
@@ -70,21 +69,21 @@ struct Elyra_VitaApp: App {
             UserSettings.self,
             WaterEntry.self,
             WeightEntry.self,
-                NutritionEntry.self,
-                CustomFood.self,
-                FavoriteFood.self,
-                ShoppingList.self,
-                ShoppingListItem.self,
-                ShoppingListItemHistory.self,
-                TodoList.self,
-                TodoTask.self,
-                Habit.self,
-                HabitCompletion.self,
-                Recipe.self,
-                RecipeIngredient.self,
-                RecipeStep.self,
-                RecipeBook.self,
-                RecipeBookMembership.self
+            NutritionEntry.self,
+            CustomFood.self,
+            FavoriteFood.self,
+            ShoppingList.self,
+            ShoppingListItem.self,
+            ShoppingListItemHistory.self,
+            TodoList.self,
+            TodoTask.self,
+            Habit.self,
+            HabitCompletion.self,
+            Recipe.self,
+            RecipeIngredient.self,
+            RecipeStep.self,
+            RecipeBook.self,
+            RecipeBookMembership.self,
         ])
 
         // Die Daten bleiben auch nach dem Neustart der App erhalten.

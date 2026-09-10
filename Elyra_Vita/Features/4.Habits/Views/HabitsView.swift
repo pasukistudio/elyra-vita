@@ -1,36 +1,53 @@
-import SwiftUI
-import SwiftData
-import UserNotifications
 import PasukiUI
+import SwiftData
+import SwiftUI
+import UserNotifications
 
 struct HabitsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Habit.updatedAt, order: .reverse) private var habits: [Habit]
-    @Query private var completions: [HabitCompletion]
+    @Query var completions: [HabitCompletion]
     @Binding var showingNewHabit: Bool
     @State private var editingHabit: Habit?
-    @State private var deletingHabit: Habit?
-    @State private var saveErrorMessage: String?
-    @State private var notificationMessage: String?
+    @State var deletingHabit: Habit?
+    @State var saveErrorMessage: String?
+    @State var notificationMessage: String?
 
     init(showingNewHabit: Binding<Bool>) {
         _showingNewHabit = showingNewHabit
         _completions = Query(sort: \HabitCompletion.day, order: .forward)
     }
 
-    private var activeHabits: [Habit] { habits.filter { !$0.isArchived } }
-    private var selectedDate: Date { Date() }
-    private var dailyHabits: [Habit] { activeHabits.filter { $0.recurrence == .daily } }
+    var activeHabits: [Habit] {
+        habits.filter { !$0.isArchived }
+    }
+
+    private var selectedDate: Date {
+        Date()
+    }
+
+    private var dailyHabits: [Habit] {
+        activeHabits.filter { $0.recurrence == .daily }
+    }
+
     private var weeklyHabits: [Habit] {
         activeHabits.filter { $0.recurrence == .weekly || $0.recurrence == .selectedDays }
     }
-    private var monthlyHabits: [Habit] { activeHabits.filter { $0.recurrence == .monthly } }
+
+    private var monthlyHabits: [Habit] {
+        activeHabits.filter { $0.recurrence == .monthly }
+    }
+
     private var completionDaysByHabit: [UUID: [Date]] {
         Dictionary(grouping: completions, by: \.habitID).mapValues { records in
             Array(Set(records.map { Calendar.current.startOfDay(for: $0.day) }))
         }
     }
-    private func completionDays(for habit: Habit) -> [Date] { completionDaysByHabit[habit.id] ?? [] }
+
+    private func completionDays(for habit: Habit) -> [Date] {
+        completionDaysByHabit[habit.id] ?? []
+    }
+
     private var progressHabits: [Habit] {
         activeHabits.filter { habit in
             switch habit.recurrence {
@@ -45,9 +62,11 @@ struct HabitsView: View {
             }
         }
     }
+
     private var progressTotal: Int {
         progressHabits.count
     }
+
     private var completedCount: Int {
         progressHabits.reduce(0) { total, habit in
             total + (isCompleted(habit) ? 1 : 0)
@@ -120,15 +139,30 @@ struct HabitsView: View {
                     Label("Heute", systemImage: "sun.max.fill")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.orange)
-                    Text(completedCount == progressTotal && progressTotal > 0 ? "Alles erledigt" : "Dein Tagesfortschritt")
-                        .font(.caption).foregroundStyle(.secondary)
+                    Text(
+                        completedCount == progressTotal && progressTotal > 0
+                            ? "Alles erledigt"
+                            : "Dein Tagesfortschritt"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Text("\(completedCount)/\(progressTotal)").font(.title3.weight(.bold)).foregroundStyle(.green)
+                Text("\(completedCount)/\(progressTotal)")
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(.green)
             }
-            SwiftUI.ProgressView(value: progressTotal == 0 ? 0 : Double(completedCount), total: Double(max(progressTotal, 1))).tint(.green)
+            SwiftUI.ProgressView(
+                value: progressTotal == 0 ? 0 : Double(completedCount),
+                total: Double(max(progressTotal, 1))
+            )
+            .tint(.green)
         }
-        .padding(18).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .padding(18)
+        .background(
+            Color(uiColor: .secondarySystemGroupedBackground),
+            in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+        )
         .shadow(color: .black.opacity(0.04), radius: 12, y: 5)
     }
 
@@ -138,8 +172,13 @@ struct HabitsView: View {
             Text("Heute ist nichts fällig").font(.headline)
             Text("Lege deine erste Gewohnheit an.")
                 .font(.subheadline).multilineTextAlignment(.center).foregroundStyle(.secondary)
-            if activeHabits.isEmpty { Button("Gewohnheit anlegen") { showingNewHabit = true }.buttonStyle(.borderedProminent) }
-        }.frame(maxWidth: .infinity).padding(.vertical, 28)
+            if activeHabits.isEmpty {
+                Button("Gewohnheit anlegen") { showingNewHabit = true }
+                    .buttonStyle(.borderedProminent)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 28)
     }
 
     @ViewBuilder
@@ -170,37 +209,15 @@ struct HabitsView: View {
     }
 
     private func habitCard(_ habit: Habit) -> some View {
-        let due = habit.isDue(on: selectedDate, completionDays: completionDays(for: habit))
-        let completed = isCompleted(habit)
-        let streak = habit.currentStreak(on: selectedDate, completionDays: completionDays(for: habit))
-        return HStack(spacing: 14) {
-            Button { toggle(habit, completed: completed) } label: {
-                Image(systemName: completed ? "checkmark.circle.fill" : "circle").font(.system(size: 28))
-                    .foregroundStyle(completed ? AnyShapeStyle(.green) : (due ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tertiary)))
-            }.buttonStyle(.plain).disabled(!due)
-            VStack(alignment: .leading, spacing: 7) {
-                Text(habit.name).font(.headline).strikethrough(completed).foregroundStyle(completed ? .secondary : .primary)
-                HStack(spacing: 6) {
-                    Label(habit.recurrenceText, systemImage: "repeat"); Text("·"); Label(habit.reminderTimeText, systemImage: "bell")
-                }.font(.caption).foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
-            VStack(spacing: 5) {
-                Circle().fill(due ? Color.orange.opacity(0.14) : Color.secondary.opacity(0.10)).frame(width: 34, height: 34)
-                    .overlay { Image(systemName: due ? "bell.fill" : "calendar").font(.caption).foregroundStyle(due ? .orange : .secondary) }
-                if streak > 0 {
-                    Label("\(streak)", systemImage: "flame.fill")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.orange)
-                        .accessibilityLabel("\(streak) in Folge")
-                }
-            }
-        }
-        .padding(16).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .contentShape(Rectangle()).contextMenu {
-            Button("Bearbeiten", systemImage: "pencil") { editingHabit = habit }
-            Button("Löschen", systemImage: "trash", role: .destructive) { deletingHabit = habit }
-        }
+        HabitCardView(
+            habit: habit,
+            selectedDate: selectedDate,
+            completionDays: completionDays(for: habit),
+            isCompleted: isCompleted(habit),
+            onToggle: { toggle(habit, completed: isCompleted(habit)) },
+            onEdit: { editingHabit = habit },
+            onDelete: { deletingHabit = habit }
+        )
     }
 
     private func isCompleted(_ habit: Habit) -> Bool {
@@ -208,13 +225,17 @@ struct HabitsView: View {
     }
 
     private func toggle(_ habit: Habit, completed: Bool) {
-        let matchingCompletions = completions.filter { $0.habitID == habit.id && Calendar.current.isDate($0.day, inSameDayAs: selectedDate) }
+        let matchingCompletions = completions.filter {
+            $0.habitID == habit.id && Calendar.current.isDate($0.day, inSameDayAs: selectedDate)
+        }
         if let completion = matchingCompletions.first {
             modelContext.delete(completion)
             for duplicate in matchingCompletions.dropFirst() {
                 modelContext.delete(duplicate)
             }
-        } else if !completed { modelContext.insert(HabitCompletion(habitID: habit.id, day: selectedDate)) }
+        } else if !completed {
+            modelContext.insert(HabitCompletion(habitID: habit.id, day: selectedDate))
+        }
         PersistenceErrorReporter.save(modelContext, operation: "Habit-Abschluss ändern") { message in
             saveErrorMessage = message
         }
@@ -227,35 +248,6 @@ struct HabitsView: View {
             }
         } catch {
             saveErrorMessage = error.localizedDescription
-        }
-    }
-
-    private var deletingAlert: Binding<Bool> { Binding(get: { deletingHabit != nil }, set: { if !$0 { deletingHabit = nil } }) }
-
-    private var saveErrorPresented: Binding<Bool> {
-        Binding(
-            get: { saveErrorMessage != nil },
-            set: { if !$0 { saveErrorMessage = nil } }
-        )
-    }
-
-    private var notificationPresented: Binding<Bool> {
-        Binding(
-            get: { notificationMessage != nil },
-            set: { if !$0 { notificationMessage = nil } }
-        )
-    }
-
-    private func rescheduleNotifications() async {
-        let result = await HabitNotificationService.synchronize(habits: activeHabits, completions: completions)
-        if activeHabits.isEmpty { return }
-        let settings = await UNUserNotificationCenter.current().notificationSettings()
-        guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else {
-            notificationMessage = "Benachrichtigungen sind deaktiviert. Aktiviere sie in den iPhone-Einstellungen, damit Habit-Erinnerungen angezeigt werden."
-            return
-        }
-        if result.failedCount > 0 {
-            notificationMessage = "\(result.failedCount) Erinnerung(en) konnten nicht geplant werden."
         }
     }
 }

@@ -1,11 +1,10 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 // MARK: - FavoriteQuickAddView
 
 /// Kompakte Mengenerfassung für ein favorisiertes Lebensmittel.
 struct FavoriteQuickAddView: View {
-
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
@@ -27,7 +26,7 @@ struct FavoriteQuickAddView: View {
         self.food = food
         _pieceWeightText = State(
             initialValue: food.pieceWeight.map {
-                $0.formatted(.number.precision(.fractionLength(0...2)))
+                $0.formatted(.number.precision(.fractionLength(0 ... 2)))
             } ?? ""
         )
         _selectedUnit = State(initialValue: food.unit == "piece" ? "g" : food.unit)
@@ -40,7 +39,8 @@ struct FavoriteQuickAddView: View {
     private var pieceWeight: Double? {
         guard let value = Double(pieceWeightText.replacingOccurrences(of: ",", with: ".")),
               value > 0,
-              value.isFinite else {
+              value.isFinite
+        else {
             return nil
         }
         return value
@@ -177,7 +177,11 @@ struct FavoriteQuickAddView: View {
             }
             .alert("Lebensmittel konnte nicht gespeichert werden", isPresented: Binding(
                 get: { errorMessage != nil },
-                set: { if !$0 { errorMessage = nil } }
+                set: {
+                    if !$0 {
+                        errorMessage = nil
+                    }
+                }
             )) {
                 Button("OK", role: .cancel) { errorMessage = nil }
             } message: {
@@ -230,7 +234,8 @@ struct FavoriteQuickAddView: View {
         }
 
         if let pieceWeight,
-           let favorite = favoriteFoods.first(where: { $0.id == food.id }) {
+           let favorite = favoriteFoods.first(where: { $0.id == food.id })
+        {
             favorite.pieceWeight = pieceWeight
             favorite.updatedAt = .now
         }

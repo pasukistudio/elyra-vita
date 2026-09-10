@@ -1,5 +1,5 @@
-import SwiftUI
 import PasukiUI
+import SwiftUI
 
 // MARK: - AppAccentColor
 
@@ -8,7 +8,6 @@ import PasukiUI
 /// Die festen Farben kommen vollständig aus PasukiUI. Elyra Vita ergänzt nur
 /// die freie Auswahl, weil diese Auswahl später über Pro geschützt werden kann.
 struct AppAccentColor: RawRepresentable, CaseIterable, Identifiable, Hashable {
-
     // MARK: - Werte
 
     let rawValue: String
@@ -34,12 +33,14 @@ struct AppAccentColor: RawRepresentable, CaseIterable, Identifiable, Hashable {
 
     static let allCases: [Self] = [
         .red, .orange, .green, .teal, .cyan,
-        .blue, .indigo, .purple, .pink, .gray, .custom
+        .blue, .indigo, .purple, .pink, .gray, .custom,
     ]
 
     // MARK: - Identifiable
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     // MARK: - Darstellung
 

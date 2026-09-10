@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 // MARK: - ShoppingListDetailView
 
@@ -90,27 +90,25 @@ struct ShoppingListDetailView: View {
             Section(title) {
                 ForEach(items) { item in
                     Button {
-                        item.update(isCompleted: !item.isCompleted)
-                        list.updatedAt = .now
-                        PersistenceErrorReporter.save(modelContext, operation: "Einkaufsartikel aktualisieren")
+                        toggleCompletion(for: item)
                     } label: {
                         itemRow(item)
                     }
                     .buttonStyle(.plain)
                     .swipeActions(edge: .leading, allowsFullSwipe: true) {
                         Button {
-                            item.update(isCompleted: !item.isCompleted)
-                            list.updatedAt = .now
-                            PersistenceErrorReporter.save(modelContext, operation: "Einkaufsartikel aktualisieren")
+                            toggleCompletion(for: item)
                         } label: {
-                            Label(item.isCompleted ? "Offen" : "Erledigt", systemImage: item.isCompleted ? "arrow.uturn.backward" : "checkmark")
+                            Label(
+                                item.isCompleted ? "Offen" : "Erledigt",
+                                systemImage: item.isCompleted ? "arrow.uturn.backward" : "checkmark"
+                            )
                         }
                         .tint(.green)
                     }
                     .swipeActions {
                         Button(role: .destructive) {
-                            modelContext.delete(item)
-                            PersistenceErrorReporter.save(modelContext, operation: "Einkaufsartikel löschen")
+                            delete(item)
                         } label: {
                             Label("Löschen", systemImage: "trash")
                         }
@@ -119,19 +117,30 @@ struct ShoppingListDetailView: View {
                         Button("Bearbeiten", systemImage: "pencil") {
                             editingItem = item
                         }
-                        Button(item.isCompleted ? "Als offen markieren" : "Als erledigt markieren", systemImage: item.isCompleted ? "arrow.uturn.backward" : "checkmark") {
-                            item.update(isCompleted: !item.isCompleted)
-                            list.updatedAt = .now
-                            PersistenceErrorReporter.save(modelContext, operation: "Einkaufsartikel aktualisieren")
+                        Button(
+                            item.isCompleted ? "Als offen markieren" : "Als erledigt markieren",
+                            systemImage: item.isCompleted ? "arrow.uturn.backward" : "checkmark"
+                        ) {
+                            toggleCompletion(for: item)
                         }
                         Button("Löschen", systemImage: "trash", role: .destructive) {
-                            modelContext.delete(item)
-                            PersistenceErrorReporter.save(modelContext, operation: "Einkaufsartikel löschen")
+                            delete(item)
                         }
                     }
                 }
             }
         }
+    }
+
+    private func toggleCompletion(for item: ShoppingListItem) {
+        item.update(isCompleted: !item.isCompleted)
+        list.updatedAt = .now
+        PersistenceErrorReporter.save(modelContext, operation: "Einkaufsartikel aktualisieren")
+    }
+
+    private func delete(_ item: ShoppingListItem) {
+        modelContext.delete(item)
+        PersistenceErrorReporter.save(modelContext, operation: "Einkaufsartikel löschen")
     }
 
     private func itemRow(_ item: ShoppingListItem) -> some View {
@@ -152,7 +161,7 @@ struct ShoppingListDetailView: View {
             }
 
             Spacer()
-            Text("\(item.quantity.formatted(.number.precision(.fractionLength(0...2)))) \(item.unit)")
+            Text("\(item.quantity.formatted(.number.precision(.fractionLength(0 ... 2)))) \(item.unit)")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }

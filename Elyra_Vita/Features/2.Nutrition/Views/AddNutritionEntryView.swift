@@ -1,26 +1,25 @@
-import SwiftUI
-import SwiftData
-import PasukiUI
 import Foundation
+import PasukiUI
+import SwiftData
+import SwiftUI
 
 // MARK: - AddNutritionEntryView
 
 /// Erfasst ein lokales Lebensmittel mit frei anpassbarer Menge.
 struct AddNutritionEntryView: View {
-
     // MARK: - Abhängigkeiten
 
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) var dismiss
+    @Environment(\.modelContext) var modelContext
 
     @Query(sort: \CustomFood.name)
     private var customFoods: [CustomFood]
 
     @Query(sort: \NutritionEntry.updatedAt, order: .reverse)
-    private var nutritionEntries: [NutritionEntry]
+    var nutritionEntries: [NutritionEntry]
 
     @Query(sort: \FavoriteFood.updatedAt, order: .reverse)
-    private var favoriteFoods: [FavoriteFood]
+    var favoriteFoods: [FavoriteFood]
 
     // MARK: - Eingaben
 
@@ -32,29 +31,152 @@ struct AddNutritionEntryView: View {
 
     // MARK: - Zustand
 
-    @State private var searchText = ""
-    @State private var selectedFood: NutritionFood?
-    @State private var remoteFoods: [NutritionFood] = []
-    @State private var isLoadingRemoteFoods = false
-    @State private var scannerPresented = false
-    @State private var customFoodSheetPresented = false
-    @State private var errorMessage: String?
-    @State private var amountText = "100"
-    @State private var pieceWeightText = ""
-    @State private var selectedUnit = "g"
-    @State private var selectedMealType: NutritionMealType = .snack
-    @State private var caloriesText = ""
-    @State private var proteinText = ""
-    @State private var carbohydratesText = ""
-    @State private var fatText = ""
-    @State private var sugarText = ""
-    @State private var fiberText = ""
-    @State private var saturatedFatText = ""
-    @State private var saltText = ""
-    @State private var foodFilter: FoodFilter = .all
-    @State private var savedFoodCount = 0
+    @State var searchText = ""
+    @State var selectedFood: NutritionFood?
+    @State var remoteFoods: [NutritionFood] = []
+    @State var isLoadingRemoteFoods = false
+    @State var scannerPresented = false
+    @State var customFoodSheetPresented = false
+    @State var errorMessage: String?
+    @State var amountText = "100"
+    @State var pieceWeightText = ""
+    @State var selectedUnit = "g"
+    @State var selectedMealType: NutritionMealType = .snack
+    @State var caloriesText = ""
+    @State var proteinText = ""
+    @State var carbohydratesText = ""
+    @State var fatText = ""
+    @State var sugarText = ""
+    @State var fiberText = ""
+    @State var saturatedFatText = ""
+    @State var saltText = ""
+    @State var foodFilter: FoodFilter = .all
+    @State var savedFoodCount = 0
 
-    private var filteredFoods: [NutritionFood] {
+    init(
+        selectedDate: Date,
+        accentColor: Color,
+        entryToEdit: NutritionEntry? = nil,
+        initialFood: NutritionFood? = nil,
+        initialMealType: NutritionMealType = .snack
+    ) {
+        self.selectedDate = selectedDate
+        self.accentColor = accentColor
+        self.entryToEdit = entryToEdit
+        self.initialFood = initialFood
+        self.initialMealType = initialMealType
+        _selectedFood = State(initialValue: initialFood)
+    }
+
+    // MARK: - Ansicht
+
+    var body: some View {
+        NavigationStack {
+            formContent
+                .navigationTitle(entryToEdit == nil ? "Mahlzeit erfassen" : "Mahlzeit bearbeiten")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Abbrechen") { dismiss() }
+                    }
+
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(entryToEdit == nil && savedFoodCount > 0 ? "Fertig" : "Speichern") {
+                            if selectedFood == nil && entryToEdit == nil {
+                                dismiss()
+                            } else {
+                                save(finishBatch: true)
+                            }
+                        }
+                        .disabled(!canFinish)
+                    }
+                }
+                .onAppear(perform: prepareForEditing)
+                .task(id: "\(searchText)|\(foodFilter.rawValue)") {
+                    await searchRemoteFoods()
+                }
+                .onChange(of: searchText) { _, newValue in
+                    if !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        foodFilter = .all
+                    }
+                }
+                .onChange(of: scannerPresented) { _, isPresented in
+                    if isPresented {
+                        // Der Scanner ist ein eigener Flow. Ein eventuell noch
+                        // vorhandener Custom-Food-Zustand darf ihn niemals
+                        // überlagern.
+                        customFoodSheetPresented = false
+                    }
+                }
+                .onChange(of: amountText) { _, newValue in
+                    guard let selectedFood,
+                          let amount = NutritionNumberParser.parse(newValue),
+                          amount > 0 else { return }
+                    setNutritionFields(for: selectedFood, amount: amount, unit: selectedUnit)
+                }
+                .onChange(of: selectedUnit) { _, newUnit in
+                    guard let selectedFood else { return }
+                    if entryToEdit == nil {
+                        amountText = newUnit == NutritionUnitFormatter.baseUnit(for: selectedFood.unit) ? "100" : "1"
+                    }
+                    guard let amount = NutritionNumberParser.parse(amountText) else { return }
+                    setNutritionFields(for: selectedFood, amount: amount, unit: newUnit)
+                }
+                .onChange(of: pieceWeightText) { _, _ in
+                    if !selectedUnitOptions.contains(where: { $0.id == selectedUnit }) {
+                        selectedUnit = selectedFood?.unit ?? "g"
+                    }
+                    guard let selectedFood,
+                          let amount = parsedAmount,
+                          amount > 0 else { return }
+                    setNutritionFields(for: selectedFood, amount: amount, unit: selectedUnit)
+                }
+                .fullScreenCover(isPresented: $scannerPresented) {
+                    BarcodeScannerView(
+                        onBarcode: { barcode in
+                            scannerPresented = false
+                            Task { @MainActor in
+                                // Erst den Scanner vollständig schließen, danach
+                                // Produkt übernehmen oder bei keinem Treffer das
+                                // eigene Lebensmittel gezielt öffnen.
+                                try? await Task.sleep(for: .milliseconds(350))
+                                await loadBarcode(barcode)
+                            }
+                        },
+                        onUnavailable: {
+                            scannerPresented = false
+                            errorMessage = "Der Barcode-Scanner ist auf diesem Gerät nicht verfügbar."
+                        }
+                    )
+                    .ignoresSafeArea()
+                }
+                .sheet(isPresented: $customFoodSheetPresented) {
+                    AddCustomFoodView { food in
+                        selectFood(food)
+                        customFoodSheetPresented = false
+                    }
+                    .presentationDetents([.large])
+                    .presentationBackground(Color(.systemBackground))
+                    .presentationDragIndicator(.visible)
+                }
+                .alert("Lebensmittel nicht gefunden", isPresented: Binding(
+                    get: { errorMessage != nil },
+                    set: {
+                        if !$0 {
+                            errorMessage = nil
+                        }
+                    }
+                )) {
+                    Button("OK", role: .cancel) { errorMessage = nil }
+                } message: {
+                    Text(errorMessage ?? "")
+                }
+        }
+    }
+}
+
+extension AddNutritionEntryView {
+    var filteredFoods: [NutritionFood] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         let localFoods: [NutritionFood]
 
@@ -88,28 +210,18 @@ struct AddNutritionEntryView: View {
     /// Dazu gehören auch gescannte Open-Food-Facts-Produkte.
     private var recentlyUsedFoods: [NutritionFood] {
         var seenIDs = Set<String>()
-
         let foods: [NutritionFood] = nutritionEntries.compactMap { entry in
             let key = entry.externalFoodID.isEmpty
                 ? "\(entry.source)-\(entry.foodName)"
                 : entry.externalFoodID
 
-            guard seenIDs.insert(key).inserted else {
-                return nil
-            }
-
+            guard seenIDs.insert(key).inserted else { return nil }
             return nutritionFood(for: entry)
         }
 
-        // Zwölf Einträge bieten eine brauchbare Verlaufsauswahl, ohne die
-        // Lebensmittelauswahl mit einer endlosen Liste zu überladen.
         return Array(foods.prefix(12))
     }
 
-    /// Rekonstruiert ein Lebensmittel aus einem gespeicherten Verzehr.
-    /// Bekannte lokale und eigene Lebensmittel liefern den vollständigen
-    /// Katalogeintrag; externe Produkte bleiben dank des Snapshots ebenfalls
-    /// erneut auswählbar.
     private func nutritionFood(for entry: NutritionEntry) -> NutritionFood {
         if let favorite = favoriteFoods.first(where: { $0.id == entry.externalFoodID }) {
             return favorite.nutritionFood
@@ -126,8 +238,8 @@ struct AddNutritionEntryView: View {
         return NutritionFood.from(entry: entry)
     }
 
-    private var parsedAmount: Double? {
-        parsedNumber(amountText)
+    var parsedAmount: Double? {
+        NutritionNumberParser.parse(amountText)
     }
 
     private var canSaveCurrentFood: Bool {
@@ -138,31 +250,27 @@ struct AddNutritionEntryView: View {
     }
 
     private var canFinish: Bool {
-        if entryToEdit != nil { return canSaveCurrentFood }
+        if entryToEdit != nil {
+            return canSaveCurrentFood
+        }
         return selectedFood == nil ? savedFoodCount > 0 : canSaveCurrentFood
     }
 
-    private var pieceWeight: Double? {
-        guard let value = parsedNumber(pieceWeightText), value > 0 else { return nil }
+    var pieceWeight: Double? {
+        guard let value = NutritionNumberParser.parse(pieceWeightText), value > 0 else { return nil }
         return value
     }
 
-    private func baseUnit(for unit: String) -> String {
-        unit == "piece" ? "g" : unit
-    }
-
-    private var selectedUnitOptions: [NutritionUnitOption] {
+    var selectedUnitOptions: [NutritionUnitOption] {
         guard let selectedFood else { return [] }
-        let baseUnit = baseUnit(for: selectedFood.unit)
+        let baseUnit = NutritionUnitFormatter.baseUnit(for: selectedFood.unit)
         var options = [NutritionUnitOption(
             id: baseUnit,
-            title: displayUnitTitle(for: baseUnit),
-            symbol: displayUnitSymbol(for: baseUnit),
+            title: NutritionUnitFormatter.title(for: baseUnit),
+            symbol: NutritionUnitFormatter.symbol(for: baseUnit),
             baseAmount: 1
         )]
 
-        // Auch gescannte Produkte ohne gespeichertes Stückgewicht müssen
-        // Stück anbieten können. Das konkrete Gewicht wird darunter erfasst.
         options.append(NutritionUnitOption(
             id: "piece",
             title: "Stück",
@@ -173,656 +281,102 @@ struct AddNutritionEntryView: View {
         return options
     }
 
-    private func displayUnitTitle(for unit: String) -> String {
-        switch unit {
-        case "piece": return "Stück"
-        case "ml": return "Milliliter"
-        default: return "Gramm"
-        }
-    }
-
-    private func displayUnitSymbol(for unit: String) -> String {
-        switch unit {
-        case "piece": return "Stück"
-        case "ml": return "ml"
-        default: return "g"
-        }
-    }
-
-    // MARK: - Mengenanzeige
-
-    /// Zeigt bei alternativen Einheiten die zugrunde liegende Gramm-/Milliliter-Menge.
-    /// So bleibt nachvollziehbar, welcher Datenbankwert für ein Stück verwendet wird.
-    private var baseAmountDescription: String? {
+    var baseAmountDescription: String? {
         guard let selectedFood,
               selectedUnit != selectedFood.unit,
               let amount = parsedAmount,
               amount > 0 else { return nil }
 
-        let baseAmount: Double
-        if let option = selectedUnitOptions.first(where: { $0.id == selectedUnit }) {
-            baseAmount = amount * option.baseAmount
-        } else {
-            baseAmount = selectedFood.baseAmount(for: amount, unit: selectedUnit)
-        }
+        let baseAmount = selectedUnitOptions
+            .first(where: { $0.id == selectedUnit })
+            .map { amount * $0.baseAmount }
+            ?? selectedFood.baseAmount(for: amount, unit: selectedUnit)
         let formattedAmount = baseAmount.rounded() == baseAmount
             ? String(Int(baseAmount))
-            : editableNumber(baseAmount)
+            : NutritionNumberParser.format(baseAmount)
 
         return "entspricht ca. \(formattedAmount) \(selectedFood.unit)"
     }
 
-    private var nutritionValues: [Double]? {
-        let values = [
-            parsedNumber(caloriesText),
-            parsedNumber(proteinText),
-            parsedNumber(carbohydratesText),
-            parsedNumber(fatText),
-            parsedNumber(sugarText),
-            parsedNumber(fiberText),
-            parsedNumber(saturatedFatText),
-            parsedNumber(saltText)
-        ]
+    var nutritionValues: [Double]? {
+        let values = [caloriesText, proteinText, carbohydratesText, fatText,
+                      sugarText, fiberText, saturatedFatText, saltText]
+            .map(NutritionNumberParser.parse)
 
-        guard values.allSatisfy({ $0 != nil && $0! >= 0 }) else { return nil }
+        guard values.allSatisfy({ $0.map { $0 >= 0 } ?? false }) else { return nil }
         return values.compactMap { $0 }
     }
 
-    init(
-        selectedDate: Date,
-        accentColor: Color,
-        entryToEdit: NutritionEntry? = nil,
-        initialFood: NutritionFood? = nil,
-        initialMealType: NutritionMealType = .snack
-    ) {
-        self.selectedDate = selectedDate
-        self.accentColor = accentColor
-        self.entryToEdit = entryToEdit
-        self.initialFood = initialFood
-        self.initialMealType = initialMealType
-        _selectedFood = State(initialValue: initialFood)
-    }
-
-    // MARK: - Ansicht
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                if selectedFood == nil {
-                    Section {
-                        if savedFoodCount > 0 {
-                            Label("\(savedFoodCount) Lebensmittel erfasst", systemImage: "checkmark.circle.fill")
-                                .foregroundStyle(.secondary)
-                        }
-                        VStack(spacing: 12) {
-                            Picker("Lebensmittel anzeigen", selection: $foodFilter) {
-                                ForEach(FoodFilter.allCases) { filter in
-                                    Text(filter.title).tag(filter)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                            .accessibilityLabel("Lebensmittelfilter")
-
-                            Divider()
-
-                            HStack {
-                                TextField("Suchen", text: $searchText)
-                                    .textInputAutocapitalization(.never)
-
-                                Button {
-                                    scannerPresented = true
-                                } label: {
-                                    Image(systemName: "barcode.viewfinder")
-                                        .font(.title3)
-                                        .foregroundStyle(accentColor)
-                                }
-                                .accessibilityLabel("Barcode scannen")
-                            }
-
-                            Divider()
-
-                            Button {
-                                customFoodSheetPresented = true
-                            } label: {
-                                Label("Eigenes Lebensmittel anlegen", systemImage: "plus.circle")
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                }
-
-                Section("Lebensmittel") {
-
-                    if let selectedFood {
-                        selectedFoodRow(selectedFood)
-                    } else {
-                        if isLoadingRemoteFoods {
-                            HStack(spacing: 8) {
-                                SwiftUI.ProgressView()
-                                Text("Open Food Facts wird durchsucht …")
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-
-                        ForEach(filteredFoods) { food in
-                            Button {
-                                selectFood(food)
-                            } label: {
-                                foodRow(food)
-                            }
-                            .buttonStyle(.plain)
-                            .contextMenu {
-                                Button(
-                                    isFavorite(food)
-                                        ? "Aus Favoriten entfernen"
-                                        : "Als Favorit markieren",
-                                    systemImage: isFavorite(food) ? "star.slash" : "star"
-                                ) {
-                                    toggleFavorite(food)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if selectedFood != nil {
-                    Section("Menge") {
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                TextField("Menge", text: $amountText)
-                                    .keyboardType(.decimalPad)
-
-                                Picker("Einheit", selection: $selectedUnit) {
-                                    ForEach(selectedUnitOptions) { option in
-                                        Text(option.symbol)
-                                            .tag(option.id)
-                                    }
-                                }
-                                .pickerStyle(.menu)
-                                .labelsHidden()
-                            }
-
-                            if selectedUnit == "piece" {
-                                HStack {
-                                    Text("Gramm pro Stück")
-                                    Spacer()
-                                    TextField("z. B. 50", text: $pieceWeightText)
-                                        .keyboardType(.decimalPad)
-                                        .multilineTextAlignment(.trailing)
-                                        .frame(width: 90)
-                                    Text("g")
-                                        .foregroundStyle(.secondary)
-                                }
-                                Text("1 Stück entspricht dieser Grammzahl.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            if let baseAmountDescription {
-                                Text(baseAmountDescription)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-
-                        Picker("Mahlzeit", selection: $selectedMealType) {
-                            ForEach(NutritionMealType.allCases) { mealType in
-                                Label(mealType.title, systemImage: mealType.icon)
-                                .tag(mealType)
-                            }
-                        }
-                    }
-
-                    Section("Nährwerte für diese Menge") {
-                        nutrientField("Kalorien", text: $caloriesText, unit: "kcal")
-                        nutrientField("Eiweiß", text: $proteinText, unit: "g")
-                        nutrientField("Kohlenhydrate", text: $carbohydratesText, unit: "g")
-                        nutrientField("Fett", text: $fatText, unit: "g")
-                        nutrientField("Zucker", text: $sugarText, unit: "g")
-                        nutrientField("Ballaststoffe", text: $fiberText, unit: "g")
-                        nutrientField("Gesättigte Fettsäuren", text: $saturatedFatText, unit: "g")
-                        nutrientField("Salz", text: $saltText, unit: "g")
-                    }
-
-                    if entryToEdit == nil {
-                        Section {
-                            if savedFoodCount > 0 {
-                                Text("\(savedFoodCount) Lebensmittel erfasst")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Button("Weiteres Lebensmittel hinzufügen", systemImage: "plus") {
-                                save(finishBatch: false)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .frame(maxWidth: .infinity)
-                        } footer: {
-                            Text("Das aktuelle Lebensmittel wird gespeichert und du kannst direkt das nächste scannen oder auswählen.")
-                        }
-                    }
-                }
-            }
-            .navigationTitle(entryToEdit == nil ? "Mahlzeit erfassen" : "Mahlzeit bearbeiten")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
-                }
-
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(entryToEdit == nil && savedFoodCount > 0 ? "Fertig" : "Speichern") {
-                        if selectedFood == nil && entryToEdit == nil {
-                            dismiss()
-                        } else {
-                            save(finishBatch: true)
-                        }
-                    }
-                        .disabled(!canFinish)
-                }
-            }
-            .onAppear(perform: prepareForEditing)
-            .task(id: "\(searchText)|\(foodFilter.rawValue)") {
-                await searchRemoteFoods()
-            }
-            .onChange(of: searchText) { _, newValue in
-                if !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    foodFilter = .all
-                }
-            }
-            .onChange(of: scannerPresented) { _, isPresented in
-                if isPresented {
-                    // Der Scanner ist ein eigener Flow. Ein eventuell noch
-                    // vorhandener Custom-Food-Zustand darf ihn niemals
-                    // überlagern.
-                    customFoodSheetPresented = false
-                }
-            }
-            .onChange(of: amountText) { _, newValue in
-                guard let selectedFood,
-                      let amount = parsedNumber(newValue),
-                      amount > 0 else { return }
-                setNutritionFields(for: selectedFood, amount: amount, unit: selectedUnit)
-            }
-            .onChange(of: selectedUnit) { _, newUnit in
-                guard let selectedFood else { return }
-                if entryToEdit == nil {
-                    amountText = newUnit == baseUnit(for: selectedFood.unit) ? "100" : "1"
-                }
-                guard let amount = parsedNumber(amountText) else { return }
-                setNutritionFields(for: selectedFood, amount: amount, unit: newUnit)
-            }
-            .onChange(of: pieceWeightText) { _, _ in
-                if !selectedUnitOptions.contains(where: { $0.id == selectedUnit }) {
-                    selectedUnit = selectedFood?.unit ?? "g"
-                }
-                guard let selectedFood,
-                      let amount = parsedAmount,
-                      amount > 0 else { return }
-                setNutritionFields(for: selectedFood, amount: amount, unit: selectedUnit)
-            }
-            .fullScreenCover(isPresented: $scannerPresented) {
-                BarcodeScannerView(
-                    onBarcode: { barcode in
-                        scannerPresented = false
-                        Task { @MainActor in
-                            // Erst den Scanner vollständig schließen, danach
-                            // Produkt übernehmen oder bei keinem Treffer das
-                            // eigene Lebensmittel gezielt öffnen.
-                            try? await Task.sleep(for: .milliseconds(350))
-                            await loadBarcode(barcode)
-                        }
-                    },
-                    onUnavailable: {
-                        scannerPresented = false
-                        errorMessage = "Der Barcode-Scanner ist auf diesem Gerät nicht verfügbar."
-                    }
-                )
-                .ignoresSafeArea()
-            }
-            .sheet(isPresented: $customFoodSheetPresented) {
-                AddCustomFoodView { food in
-                    selectFood(food)
-                    customFoodSheetPresented = false
-                }
-                .presentationDetents([.large])
-                .presentationBackground(Color(.systemBackground))
-                .presentationDragIndicator(.visible)
-            }
-            .alert("Lebensmittel nicht gefunden", isPresented: Binding(
-                get: { errorMessage != nil },
-                set: { if !$0 { errorMessage = nil } }
-            )) {
-                Button("OK", role: .cancel) { errorMessage = nil }
-            } message: {
-                Text(errorMessage ?? "")
-            }
-        }
-    }
-
-    // MARK: - Lebensmittelzeilen
-
-    private func foodRow(_ food: NutritionFood) -> some View {
-        HStack {
-            Image(systemName: "fork.knife")
-                .foregroundStyle(accentColor)
-                .frame(width: 28)
-
-            Text(food.name)
-                .foregroundStyle(.primary)
-
-            Spacer()
-
-            if isFavorite(food) {
-                Image(systemName: "star.fill")
-                    .foregroundStyle(.yellow)
-                    .accessibilityLabel("Favorit")
-            }
-
-            Text(food.caloriesPer100, format: .number.precision(.fractionLength(0)))
-                .foregroundStyle(.secondary)
-            Text("kcal/100")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private func selectedFoodRow(_ food: NutritionFood) -> some View {
-        HStack {
-            foodRow(food)
-            Button("Ändern") {
-                selectedFood = nil
-            }
-            .font(.caption.weight(.semibold))
-        }
-    }
-
-    private func selectFood(_ food: NutritionFood) {
+    func selectFood(_ food: NutritionFood) {
         let recentEntry = recentlyUsedEntry(for: food)
         let savedPieceWeight = recentEntry.flatMap { $0.pieceWeight > 0 ? $0.pieceWeight : nil }
             ?? favoriteFoods.first(where: { $0.id == food.id })?.pieceWeight
             ?? nutritionEntries.first(where: { $0.externalFoodID == food.id && $0.pieceWeight > 0 })?.pieceWeight
         selectedFood = food
-        pieceWeightText = savedPieceWeight.map(editableNumber) ?? food.pieceWeight.map(editableNumber) ?? ""
+        pieceWeightText = savedPieceWeight.map(NutritionNumberParser.format)
+            ?? food.pieceWeight.map(NutritionNumberParser.format)
+            ?? ""
         searchText = ""
-        amountText = recentEntry.map { editableNumber($0.amount) } ?? "100"
-        let rememberedUnit = recentEntry?.unit ?? baseUnit(for: food.unit)
+        amountText = recentEntry.map { NutritionNumberParser.format($0.amount) } ?? "100"
+        let rememberedUnit = recentEntry?.unit ?? NutritionUnitFormatter.baseUnit(for: food.unit)
         selectedUnit = selectedUnitOptions.contains(where: { $0.id == rememberedUnit })
             ? rememberedUnit
-            : baseUnit(for: food.unit)
+            : NutritionUnitFormatter.baseUnit(for: food.unit)
         let amount = parsedAmount ?? 100
         setNutritionFields(for: food, amount: amount, unit: selectedUnit)
     }
 
-    private func recentlyUsedEntry(for food: NutritionFood) -> NutritionEntry? {
-        nutritionEntries.first {
-            if !$0.externalFoodID.isEmpty {
-                return $0.externalFoodID == food.id
-            }
-            return $0.foodName.localizedCaseInsensitiveCompare(food.name) == .orderedSame
-        }
-    }
-
-    private func isFavorite(_ food: NutritionFood) -> Bool {
-        favoriteFoods.contains { $0.id == food.id }
-    }
-
-    private func toggleFavorite(_ food: NutritionFood) {
-        if let favorite = favoriteFoods.first(where: { $0.id == food.id }) {
-            modelContext.delete(favorite)
-        } else {
-            modelContext.insert(FavoriteFood(food: food))
-        }
-
-        do {
-            try modelContext.save()
-        } catch {
-            modelContext.rollback()
-            errorMessage = error.localizedDescription
-        }
-    }
-
-    private func nutrientField(_ title: String, text: Binding<String>, unit: String) -> some View {
-        HStack {
-            Text(title)
-                .foregroundStyle(.primary)
-
-            Spacer()
-
-            TextField("", text: text)
-                .keyboardType(.decimalPad)
-                .multilineTextAlignment(.trailing)
-                .frame(minWidth: 72)
-                .accessibilityLabel(title)
-
-            Text(unit)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    // MARK: - Speichern
-
-    private func parsedNumber(_ text: String) -> Double? {
-        Double(text.replacingOccurrences(of: ",", with: "."))
-    }
-
-    // MARK: - Open Food Facts
-
-    /// Sucht erst nach einer kurzen Eingabepause, damit nicht jeder Tastendruck
-    /// eine Netzwerkanfrage auslöst. Der lokale Katalog bleibt sofort sichtbar.
-    private func searchRemoteFoods() async {
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard query.count >= 2, selectedFood == nil, foodFilter == .all else {
-            remoteFoods = []
-            return
-        }
-
-        try? await Task.sleep(for: .milliseconds(350))
-        guard !Task.isCancelled else { return }
-
-        isLoadingRemoteFoods = true
-        defer { isLoadingRemoteFoods = false }
-
-        do {
-            remoteFoods = try await OpenFoodFactsService().search(query)
-        } catch {
-            // Lokale Lebensmittel bleiben nutzbar, der Nutzer erhält aber
-            // einen klaren Hinweis statt einer irreführenden leeren Suche.
-            remoteFoods = []
-            errorMessage = "Die Online-Lebensmittelsuche ist momentan nicht erreichbar. Lokale Lebensmittel kannst du weiterhin verwenden."
-        }
-    }
-
-    /// Lädt ein konkretes Produkt nach einem Barcode-Scan.
-    private func loadBarcode(_ barcode: String) async {
-        do {
-            guard let food = try await OpenFoodFactsService().product(for: barcode) else {
-                // Nur ein tatsächlich unbekannter Barcode öffnet das eigene
-                // Lebensmittel. Netzwerk- oder Scannerfehler bleiben Alerts.
-                customFoodSheetPresented = true
-                return
-            }
-
-            // Ein Treffer beendet jeden eventuell veralteten Fallback-Zustand.
-            customFoodSheetPresented = false
-            selectFood(food)
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-
-    private func editableNumber(_ value: Double) -> String {
-        String(format: "%.2f", value).replacingOccurrences(of: ".", with: ",")
-    }
-
-    /// Überträgt die Datenbankwerte auf die aktuell eingegebene Menge.
     private func setNutritionFields(for food: NutritionFood, amount: Double, unit: String) {
-        let factor: Double
-        if let option = selectedUnitOptions.first(where: { $0.id == unit }) {
-            factor = amount * option.baseAmount / 100
-        } else {
-            factor = food.baseAmount(for: amount, unit: unit) / 100
-        }
-        caloriesText = editableNumber(food.caloriesPer100 * factor)
-        proteinText = editableNumber(food.proteinPer100 * factor)
-        carbohydratesText = editableNumber(food.carbohydratesPer100 * factor)
-        fatText = editableNumber(food.fatPer100 * factor)
-        sugarText = editableNumber(food.sugarPer100 * factor)
-        fiberText = editableNumber(food.fiberPer100 * factor)
-        saturatedFatText = editableNumber(food.saturatedFatPer100 * factor)
-        saltText = editableNumber(food.saltPer100 * factor)
+        let factor = selectedUnitOptions
+            .first(where: { $0.id == unit })
+            .map { amount * $0.baseAmount / 100 }
+            ?? food.baseAmount(for: amount, unit: unit) / 100
+        caloriesText = NutritionNumberParser.format(food.caloriesPer100 * factor)
+        proteinText = NutritionNumberParser.format(food.proteinPer100 * factor)
+        carbohydratesText = NutritionNumberParser.format(food.carbohydratesPer100 * factor)
+        fatText = NutritionNumberParser.format(food.fatPer100 * factor)
+        sugarText = NutritionNumberParser.format(food.sugarPer100 * factor)
+        fiberText = NutritionNumberParser.format(food.fiberPer100 * factor)
+        saturatedFatText = NutritionNumberParser.format(food.saturatedFatPer100 * factor)
+        saltText = NutritionNumberParser.format(food.saltPer100 * factor)
     }
 
-    /// Lädt beim Bearbeiten die bereits gespeicherten, ggf. korrigierten Werte.
     private func setNutritionFields(from entry: NutritionEntry) {
-        caloriesText = editableNumber(entry.calories)
-        proteinText = editableNumber(entry.proteinGrams)
-        carbohydratesText = editableNumber(entry.carbohydratesGrams)
-        fatText = editableNumber(entry.fatGrams)
-        sugarText = editableNumber(entry.sugarGrams)
-        fiberText = editableNumber(entry.fiberGrams)
-        saturatedFatText = editableNumber(entry.saturatedFatGrams)
-        saltText = editableNumber(entry.saltGrams)
+        caloriesText = NutritionNumberParser.format(entry.calories)
+        proteinText = NutritionNumberParser.format(entry.proteinGrams)
+        carbohydratesText = NutritionNumberParser.format(entry.carbohydratesGrams)
+        fatText = NutritionNumberParser.format(entry.fatGrams)
+        sugarText = NutritionNumberParser.format(entry.sugarGrams)
+        fiberText = NutritionNumberParser.format(entry.fiberGrams)
+        saturatedFatText = NutritionNumberParser.format(entry.saturatedFatGrams)
+        saltText = NutritionNumberParser.format(entry.saltGrams)
     }
 
     private func prepareForEditing() {
         if let entryToEdit {
             selectedMealType = entryToEdit.mealType
-            amountText = editableNumber(entryToEdit.amount)
-            selectedFood = NutritionFood.localCatalog.first {
-                $0.id == entryToEdit.externalFoodID
-            } ?? NutritionFood.localCatalog.first {
-                $0.name == entryToEdit.foodName
-            } ?? customFoods.map(\.nutritionFood).first {
-                $0.id == entryToEdit.externalFoodID
-            } ?? customFoods.map(\.nutritionFood).first {
-                $0.name == entryToEdit.foodName
-            } ?? nutritionFood(for: entryToEdit)
+            amountText = NutritionNumberParser.format(entryToEdit.amount)
+            selectedFood = NutritionFood.localCatalog.first { $0.id == entryToEdit.externalFoodID }
+                ?? NutritionFood.localCatalog.first { $0.name == entryToEdit.foodName }
+                ?? customFoods.map(\.nutritionFood).first { $0.id == entryToEdit.externalFoodID }
+                ?? customFoods.map(\.nutritionFood).first { $0.name == entryToEdit.foodName }
+                ?? nutritionFood(for: entryToEdit)
             selectedUnit = entryToEdit.unit
-            pieceWeightText = entryToEdit.pieceWeight > 0 ? editableNumber(entryToEdit.pieceWeight) : ""
-            if let selectedFood,
-               !selectedUnitOptions.contains(where: { $0.id == selectedUnit }) {
+            pieceWeightText = entryToEdit.pieceWeight > 0
+                ? NutritionNumberParser.format(entryToEdit.pieceWeight)
+                : ""
+            if let selectedFood, !selectedUnitOptions.contains(where: { $0.id == selectedUnit }) {
                 selectedUnit = selectedFood.unit
             }
             setNutritionFields(from: entryToEdit)
         } else {
             selectedMealType = initialMealType
             if let initialFood {
-                pieceWeightText = initialFood.pieceWeight.map(editableNumber) ?? ""
-                selectedUnit = baseUnit(for: initialFood.unit)
+                pieceWeightText = initialFood.pieceWeight.map(NutritionNumberParser.format) ?? ""
+                selectedUnit = NutritionUnitFormatter.baseUnit(for: initialFood.unit)
                 amountText = "100"
                 setNutritionFields(for: initialFood, amount: 100, unit: selectedUnit)
             }
-        }
-    }
-
-    private func save(finishBatch: Bool) {
-        guard let selectedFood,
-              let amount = parsedAmount,
-              amount > 0,
-              let values = nutritionValues,
-              values.count == 8 else { return }
-
-        let calories = values[0]
-        let protein = values[1]
-        let carbohydrates = values[2]
-        let fat = values[3]
-        let sugar = values[4]
-        let fiber = values[5]
-        let saturatedFat = values[6]
-        let salt = values[7]
-
-        if let entryToEdit {
-            entryToEdit.foodName = selectedFood.name
-            entryToEdit.brand = selectedFood.brand
-            entryToEdit.unit = selectedUnit
-            entryToEdit.pieceWeight = pieceWeight ?? 0
-            entryToEdit.externalFoodID = selectedFood.id
-            entryToEdit.source = selectedFood.source
-            entryToEdit.update(
-                mealType: selectedMealType,
-                amount: amount,
-                date: entryToEdit.date
-            )
-            entryToEdit.calories = calories
-            entryToEdit.proteinGrams = protein
-            entryToEdit.carbohydratesGrams = carbohydrates
-            entryToEdit.fatGrams = fat
-            entryToEdit.sugarGrams = sugar
-            entryToEdit.fiberGrams = fiber
-            entryToEdit.saturatedFatGrams = saturatedFat
-            entryToEdit.saltGrams = salt
-            entryToEdit.updatedAt = .now
-        } else {
-            modelContext.insert(
-                NutritionEntry(
-                    foodName: selectedFood.name,
-                    brand: selectedFood.brand,
-                    mealType: selectedMealType,
-                    amount: amount,
-                    unit: selectedUnit,
-                    pieceWeight: pieceWeight ?? 0,
-                    calories: calories,
-                    proteinGrams: protein,
-                    carbohydratesGrams: carbohydrates,
-                    fatGrams: fat,
-                    sugarGrams: sugar,
-                    fiberGrams: fiber,
-                    saturatedFatGrams: saturatedFat,
-                    saltGrams: salt,
-                    date: selectedDate,
-                    source: selectedFood.source,
-                    externalFoodID: selectedFood.id
-                )
-            )
-        }
-
-        if PersistenceErrorReporter.save(modelContext, operation: "Ernährungseintrag speichern") {
-            if entryToEdit != nil || finishBatch {
-                dismiss()
-            } else {
-                savedFoodCount += 1
-                resetForNextFood()
-            }
-        }
-    }
-
-    private func resetForNextFood() {
-        selectedFood = nil
-        searchText = ""
-        remoteFoods = []
-        amountText = "100"
-        pieceWeightText = ""
-        selectedUnit = "g"
-        caloriesText = ""
-        proteinText = ""
-        carbohydratesText = ""
-        fatText = ""
-        sugarText = ""
-        fiberText = ""
-        saturatedFatText = ""
-        saltText = ""
-    }
-}
-
-#Preview {
-    AddNutritionEntryView(selectedDate: .now, accentColor: .orange)
-        .modelContainer(for: [NutritionEntry.self, CustomFood.self, FavoriteFood.self], inMemory: true)
-}
-
-private enum FoodFilter: String, CaseIterable, Identifiable {
-    case all
-    case favorites
-    case recent
-
-    var id: Self { self }
-
-    var title: String {
-        switch self {
-        case .all: "Alle"
-        case .favorites: "Favoriten"
-        case .recent: "Zuletzt"
         }
     }
 }

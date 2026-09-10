@@ -1,12 +1,11 @@
-import SwiftUI
 import PasukiUI
+import SwiftUI
 
 /// Zeigt die wichtigsten Gesundheitswerte in einer gemeinsamen Karte an.
 ///
 /// Die Karte ist bewusst als eigener Baustein aufgebaut, damit die
 /// Tageswerte später unabhängig von der OverviewView erweitert werden können.
 struct DailyMetricsSummaryCard: View {
-
     // MARK: - Eingaben
 
     /// Die aktuell ausgewählte Akzentfarbe der App.

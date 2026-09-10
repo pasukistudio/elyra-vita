@@ -14,31 +14,31 @@ struct ContentView: View {
     // MARK: - Navigation und Auswahl
 
     /// Der aktuell aktive Tab.
-    @State private var selectedSection: AppSection = .overview
+    @State var selectedSection: AppSection = .overview
 
     /// Das Datum der gemeinsamen Datumsnavigation.
-    @State private var selectedDate = Date()
+    @State var selectedDate = Date()
 
     /// Steuert die Präsentation der Datumsauswahl.
-    @State private var showingDatePicker = false
+    @State var showingDatePicker = false
 
     /// Steuert die Präsentation der Ansicht zum Wasser hinzufügen.
-    @State private var showingAddWater = false
+    @State var showingAddWater = false
 
     /// Steuert die Präsentation der Ansicht zum Gewicht erfassen.
-    @State private var showingAddWeight = false
+    @State var showingAddWeight = false
 
     /// Steuert die Präsentation der Ansicht zum Ernährungseintrag.
-    @State private var showingAddNutrition = false
+    @State var showingAddNutrition = false
 
     /// Mahlzeitentyp, der aus dem Toolbar-Menü vorgewählt wurde.
-    @State private var selectedNutritionMealType: NutritionMealType = .snack
+    @State var selectedNutritionMealType: NutritionMealType = .snack
 
     /// Gespeicherte Einstellungen, automatisch von SwiftData beobachtet.
-    @Query private var userSettings: [UserSettings]
+    @Query var userSettings: [UserSettings]
 
     /// Steuert die Navigation zur SettingsView.
-    @State private var showingSettings = false
+    @State var showingSettings = false
 
     /// Steuert das Anlegen einer Einkaufsliste aus der Planning-Toolbar.
     @State private var showingNewShoppingList = false
@@ -166,63 +166,6 @@ struct ContentView: View {
         _ = await HabitNotificationService.synchronize(habits: habits, completions: habitCompletions)
     }
 
-    // MARK: - Gemeinsame Toolbar
-
-    /// Die Toolbar wird je nach aktivem Tab angepasst.
-    @ToolbarContentBuilder
-    private var sharedToolbar: some ToolbarContent {
-        SharedToolbar(
-            title: dateTitle,
-            onPrevious: {
-                moveSelectedDate(by: -1)
-            },
-            onSelectDate: {
-                showingDatePicker = true
-            },
-            onNext: {
-                moveSelectedDate(by: 1)
-            },
-            menuActions: selectedSection == .overview
-                ? SharedToolbarAction.overview
-                : SharedToolbarAction.nutrition,
-            onMenuAction: { action in
-                handleToolbarAction(action)
-            },
-            onSettings: {
-                showingSettings = true
-            },
-            isVisible: selectedSection == .overview || selectedSection == .nutrition
-        )
-    }
-
-    // MARK: - Toolbar-Aktionen
-
-    /// Führt die bereits implementierten Aktionen direkt aus und hält
-    /// zukünftige Mahlzeit-/Gewicht-Views als klar benannte Fälle bereit.
-    private func handleToolbarAction(_ action: SharedToolbarAction) {
-        switch action {
-        case .water:
-            showingAddWater = true
-        case .weight:
-            showingAddWeight = true
-        case .meal:
-            selectedNutritionMealType = .snack
-            showingAddNutrition = true
-        case .breakfast:
-            selectedNutritionMealType = .breakfast
-            showingAddNutrition = true
-        case .lunch:
-            selectedNutritionMealType = .lunch
-            showingAddNutrition = true
-        case .dinner:
-            selectedNutritionMealType = .dinner
-            showingAddNutrition = true
-        case .snack:
-            selectedNutritionMealType = .snack
-            showingAddNutrition = true
-        }
-    }
-
     // MARK: - Tab-Bereiche
 
     /// Der Uebersichts-Tab.
@@ -298,7 +241,7 @@ struct ContentView: View {
     // MARK: - Datumsnavigation
 
     /// Zeigt fuer bekannte Tage einen kurzen Namen an.
-    private var dateTitle: String {
+    var dateTitle: String {
         let calendar = Calendar.current
 
         if calendar.isDateInToday(selectedDate) {
@@ -323,7 +266,7 @@ struct ContentView: View {
 
     /// Verschiebt das ausgewaehlte Datum um eine Anzahl von Tagen.
     /// Negative Werte gehen zurueck, positive Werte gehen voraus.
-    private func moveSelectedDate(by days: Int) {
+    func moveSelectedDate(by days: Int) {
         guard let newDate = Calendar.current.date(
             byAdding: .day,
             value: days,
@@ -355,42 +298,5 @@ struct ContentView: View {
         modelContext.insert(WaterEntry(date: entryDate, amount: amount))
 
         PersistenceErrorReporter.save(modelContext, operation: "Wassereintrag speichern")
-    }
-
-    // MARK: - Erscheinungsbild
-
-    /// Uebersetzt die gespeicherte Auswahl in ein SwiftUI-Farbschema.
-    private var preferredColorScheme: ColorScheme? {
-        guard
-            let rawValue =
-            userSettings.first?.appearanceRawValue,
-            let appearance =
-            AppAppearance(rawValue: rawValue)
-        else {
-            return nil
-        }
-
-        return appearance.colorScheme
-    }
-
-    // MARK: - Akzentfarbe
-
-    /// Ermittelt die Preset- oder eigene Akzentfarbe des Profils.
-    private var selectedAccentColor: Color {
-        guard let settings = userSettings.first else {
-            return ColorPreset.blue.color
-        }
-
-        let accentColor = AppAccentColor(
-            rawValue: settings.accentColorRawValue
-        )
-
-        if accentColor == .custom {
-            return Color(
-                hexString: settings.customAccentHex
-            )
-        }
-
-        return accentColor.color ?? ColorPreset.blue.color
     }
 }

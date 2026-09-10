@@ -1,13 +1,12 @@
 import Foundation
-import SwiftData
 import PasukiUI
+import SwiftData
 
 // MARK: - UserSettings
 
 /// Persistierte, geräteübergreifend synchronisierte Benutzereinstellungen.
 @Model
 final class UserSettings {
-
     // MARK: - Profil-Daten
 
     var name: String = ""
@@ -26,10 +25,10 @@ final class UserSettings {
     // MARK: - Vita-spezifische Tagesziele
 
     /// Elyra-Vita-spezifisches Wasserziel in Millilitern.
-    var waterGoalML: Int = 2_500
+    var waterGoalML: Int = 2500
 
     /// Persönliches tägliches Kalorienziel.
-    var calorieGoal: Int = 1_800
+    var calorieGoal: Int = 1800
 
     // MARK: - Benachrichtigungen
 
@@ -52,17 +51,17 @@ final class UserSettings {
         accentColorRawValue: String =
             AppAccentColor.blue.rawValue,
         customAccentHex: String = "#007AFF",
-        waterGoalML: Int = 2_500,
-        calorieGoal: Int = 1_800
+        waterGoalML: Int = 2500,
+        calorieGoal: Int = 1800
     ) {
         self.name = name
         self.appearanceRawValue = appearanceRawValue
         self.accentColorRawValue = accentColorRawValue
         self.customAccentHex = customAccentHex
-        self.waterGoalML = min(max(waterGoalML, 500), 6_000)
-        self.calorieGoal = min(max(calorieGoal, 1_000), 6_000)
-        self.createdAt = Date()
-        self.updatedAt = Date()
+        self.waterGoalML = min(max(waterGoalML, 500), 6000)
+        self.calorieGoal = min(max(calorieGoal, 1000), 6000)
+        createdAt = Date()
+        updatedAt = Date()
     }
 
     // MARK: - Änderungen

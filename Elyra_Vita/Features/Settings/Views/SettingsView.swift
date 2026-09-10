@@ -1,9 +1,9 @@
-import SwiftData
 import OSLog
+import PasukiUI
 import StoreKit
+import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
-import PasukiUI
 
 // MARK: - SettingsView
 
@@ -36,6 +36,7 @@ struct SettingsView: View {
     )
 
     // MARK: - Persistierte Profile
+
     @Query(
         sort: \UserSettings.updatedAt,
         order: .reverse
@@ -65,9 +66,7 @@ struct SettingsView: View {
             )
         }
         .navigationTitle("Einstellungen")
-
         .navigationBarTitleDisplayMode(.inline)
-
         .task {
             createProfileIfNeeded()
         }
@@ -126,7 +125,6 @@ struct SettingsView: View {
         }
     }
 
-    @ViewBuilder
     private var dailyGoalsSection: some View {
         Section("Tagesziele") {
             if let profile = profiles.first {
@@ -139,16 +137,18 @@ struct SettingsView: View {
                             saveSettings()
                         }
                     ),
-                    in: 1_000...6_000,
+                    in: 1000 ... 6000,
                     step: 100
                 ) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Kalorienziel")
                             .font(.body.weight(.medium))
 
-                        Text("\(profile.calorieGoal.formatted(.number.locale(Locale(identifier: "de_DE")))) kcal pro Tag")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                        Text(
+                            "\(profile.calorieGoal.formatted(.number.locale(Locale(identifier: "de_DE")))) kcal pro Tag"
+                        )
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                     }
                 }
 
@@ -161,7 +161,7 @@ struct SettingsView: View {
                             saveSettings()
                         }
                     ),
-                    in: 500...6_000,
+                    in: 500 ... 6000,
                     step: 250
                 ) {
                     VStack(alignment: .leading, spacing: 3) {
@@ -181,7 +181,6 @@ struct SettingsView: View {
 
     // MARK: - Profil Sektion
 
-    @ViewBuilder
     private var profileSection: some View {
         Section("Profil") {
             if profiles.first != nil {
@@ -190,9 +189,7 @@ struct SettingsView: View {
                     text: $draftName
                 )
                 .textContentType(.name)
-
                 .submitLabel(.done)
-
                 .onSubmit {
                     saveName()
                 }
@@ -200,124 +197,6 @@ struct SettingsView: View {
                 ProgressView()
             }
         }
-    }
-
-    // MARK: - Erscheinungsbild Sektion
-
-    @ViewBuilder
-    private var appearanceSection: some View {
-        Section("Darstellung") {
-            if let profile = profiles.first {
-                Picker(
-                    "Erscheinungsbild",
-                    selection: Binding(
-                        get: {
-                            AppAppearance(
-                                rawValue: profile.appearanceRawValue
-                            ) ?? .system
-                        },
-                        set: { appearance in
-                            profile.appearanceRawValue =
-                            appearance.rawValue
-
-                            profile.markUpdated()
-                            saveSettings()
-                        }
-                    )
-                ) {
-                    ForEach(AppAppearance.allCases) { appearance in
-                        Label(
-                            appearance.title,
-                            systemImage: appearance.icon
-                        )
-                        .tag(appearance)
-                    }
-                }
-                .pickerStyle(.segmented)
-            }
-        }
-    }
-
-    // MARK: - Akzentfarbe Sektion
-
-    // MARK: - Pro Sektion
-
-    @ViewBuilder
-    private var proSection: some View {
-        Section("Elyra Vita Pro") {
-            if proAccess.hasAccess(to: .customAccentColor) {
-                Label("Pro ist aktiviert", systemImage: "checkmark.seal.fill")
-                    .foregroundStyle(.green)
-            } else if let product = proAccess.products.first {
-                Button {
-                    Task {
-                        await purchase(product)
-                    }
-                } label: {
-                    HStack {
-                        Label("Pro freischalten", systemImage: "star.fill")
-                        Spacer()
-                        Text(product.displayPrice)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .disabled(isProcessingStoreAction)
-            } else if proAccess.state == .loading {
-                HStack {
-                    ProgressView()
-                    Text("StoreKit wird geladen …")
-                }
-            } else {
-                Text("Pro ist derzeit nicht verfügbar.")
-                    .foregroundStyle(.secondary)
-            }
-
-            Button("Käufe wiederherstellen") {
-                Task {
-                    await restorePurchases()
-                }
-            }
-            .disabled(isProcessingStoreAction)
-        }
-    }
-
-    @ViewBuilder
-    private var accentColorSection: some View {
-        Section {
-            if let profile = profiles.first {
-                customColorRow(profile: profile)
-            }
-        } header: {
-            Text("Akzentfarbe")
-        } footer: {
-            Text(configuration.customColorProMessage)
-        }
-    }
-
-    private func customColorRow(
-        profile: UserSettings
-    ) -> some View {
-        PresetColorSelectionView(
-            selection: Binding(
-                get: { profile.customAccentHex },
-                set: { profile.customAccentHex = $0 }
-            ),
-            title: "Akzentfarbe",
-            onPresetSelected: { preset in
-                profile.customAccentHex = preset.hex
-                profile.accentColorRawValue =
-                AppAccentColor(rawValue: preset.rawValue).rawValue
-                profile.markUpdated()
-                saveSettings()
-            },
-            onCustomColorChanged: { hex in
-                profile.customAccentHex = hex
-                profile.accentColorRawValue = AppAccentColor.custom.rawValue
-                profile.markUpdated()
-                saveSettings()
-            },
-            proAccess: proAccess
-        )
     }
 
     // MARK: - StoreKit-Aktionen
@@ -343,7 +222,6 @@ struct SettingsView: View {
             storeErrorMessage = error.localizedDescription
         }
     }
-
 
     private var appVersion: String {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "–"
@@ -413,7 +291,102 @@ struct SettingsView: View {
                 "UserSettings konnten nicht gespeichert werden: \(error.localizedDescription)"
             )
             saveErrorMessage =
-            "Die Einstellungen konnten nicht gespeichert werden."
+                "Die Einstellungen konnten nicht gespeichert werden."
         }
+    }
+}
+
+private extension SettingsView {
+    var appearanceSection: some View {
+        Section("Darstellung") {
+            if let profile = profiles.first {
+                Picker(
+                    "Erscheinungsbild",
+                    selection: Binding(
+                        get: { AppAppearance(rawValue: profile.appearanceRawValue) ?? .system },
+                        set: { appearance in
+                            profile.appearanceRawValue = appearance.rawValue
+                            profile.markUpdated()
+                            saveSettings()
+                        }
+                    )
+                ) {
+                    ForEach(AppAppearance.allCases) { appearance in
+                        Label(appearance.title, systemImage: appearance.icon)
+                            .tag(appearance)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+        }
+    }
+
+    var proSection: some View {
+        Section("Elyra Vita Pro") {
+            if proAccess.hasAccess(to: .customAccentColor) {
+                Label("Pro ist aktiviert", systemImage: "checkmark.seal.fill")
+                    .foregroundStyle(.green)
+            } else if let product = proAccess.products.first {
+                Button {
+                    Task { await purchase(product) }
+                } label: {
+                    HStack {
+                        Label("Pro freischalten", systemImage: "star.fill")
+                        Spacer()
+                        Text(product.displayPrice)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(isProcessingStoreAction)
+            } else if proAccess.state == .loading {
+                HStack {
+                    ProgressView()
+                    Text("StoreKit wird geladen …")
+                }
+            } else {
+                Text("Pro ist derzeit nicht verfügbar.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Button("Käufe wiederherstellen") {
+                Task { await restorePurchases() }
+            }
+            .disabled(isProcessingStoreAction)
+        }
+    }
+
+    var accentColorSection: some View {
+        Section {
+            if let profile = profiles.first {
+                customColorRow(profile: profile)
+            }
+        } header: {
+            Text("Akzentfarbe")
+        } footer: {
+            Text(configuration.customColorProMessage)
+        }
+    }
+
+    func customColorRow(profile: UserSettings) -> some View {
+        PresetColorSelectionView(
+            selection: Binding(
+                get: { profile.customAccentHex },
+                set: { profile.customAccentHex = $0 }
+            ),
+            title: "Akzentfarbe",
+            onPresetSelected: { preset in
+                profile.customAccentHex = preset.hex
+                profile.accentColorRawValue = AppAccentColor(rawValue: preset.rawValue).rawValue
+                profile.markUpdated()
+                saveSettings()
+            },
+            onCustomColorChanged: { hex in
+                profile.customAccentHex = hex
+                profile.accentColorRawValue = AppAccentColor.custom.rawValue
+                profile.markUpdated()
+                saveSettings()
+            },
+            proAccess: proAccess
+        )
     }
 }

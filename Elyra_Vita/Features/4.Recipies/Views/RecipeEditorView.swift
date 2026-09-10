@@ -1,35 +1,35 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct RecipeEditorView: View {
     @Environment(\.elyraAccentColor) private var accentColor
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) var dismiss
+    @Environment(\.modelContext) var modelContext
     @Query(sort: \RecipeBook.createdAt) private var recipeBooks: [RecipeBook]
     @Query private var memberships: [RecipeBookMembership]
-    @Query private var existingRecipes: [Recipe]
+    @Query var existingRecipes: [Recipe]
     @Query(sort: \CustomFood.name) private var customFoods: [CustomFood]
     @Query(sort: \FavoriteFood.updatedAt, order: .reverse) private var favoriteFoods: [FavoriteFood]
 
     let recipe: Recipe?
-    @State private var title: String
-    @State private var note: String
-    @State private var servings: Int
-    @State private var prepMinutes: Int
-    @State private var category: String
-    @State private var imageURL: String
-    @State private var sourceURL: String
-    @State private var ingredients: [IngredientDraft]
-    @State private var steps: [StepDraft]
-    @State private var errorMessage: String?
+    @State var title: String
+    @State var note: String
+    @State var servings: Int
+    @State var prepMinutes: Int
+    @State var category: String
+    @State var imageURL: String
+    @State var sourceURL: String
+    @State var ingredients: [IngredientDraft]
+    @State var steps: [StepDraft]
+    @State var errorMessage: String?
     @State private var importURL = ""
     @State private var isImporting = false
-    @State private var selectedBookIDs = Set<UUID>()
-    @State private var caloriesPerServingText = ""
-    @State private var proteinPerServingText = ""
-    @State private var carbohydratesPerServingText = ""
-    @State private var fatPerServingText = ""
-    @State private var nutritionMessage: String?
+    @State var selectedBookIDs = Set<UUID>()
+    @State var caloriesPerServingText = ""
+    @State var proteinPerServingText = ""
+    @State var carbohydratesPerServingText = ""
+    @State var fatPerServingText = ""
+    @State var nutritionMessage: String?
 
     @MainActor init(
         recipe: Recipe? = nil,
@@ -47,18 +47,28 @@ struct RecipeEditorView: View {
         _category = State(initialValue: recipe?.category ?? "")
         _imageURL = State(initialValue: recipe?.imageURL ?? "")
         _sourceURL = State(initialValue: recipe?.sourceURL ?? "")
-        _caloriesPerServingText = State(initialValue: recipe.map { Self.number($0.caloriesPerServing) } ?? prefilledNutrition.map { Self.number($0.calories) } ?? "")
-        _proteinPerServingText = State(initialValue: recipe.map { Self.number($0.proteinPerServing) } ?? prefilledNutrition.map { Self.number($0.protein) } ?? "")
-        _carbohydratesPerServingText = State(initialValue: recipe.map { Self.number($0.carbohydratesPerServing) } ?? prefilledNutrition.map { Self.number($0.carbohydrates) } ?? "")
-        _fatPerServingText = State(initialValue: recipe.map { Self.number($0.fatPerServing) } ?? prefilledNutrition.map { Self.number($0.fat) } ?? "")
+        _caloriesPerServingText = State(
+            initialValue: recipe.map { Self.number($0.caloriesPerServing) }
+                ?? prefilledNutrition.map { Self.number($0.calories) }
+                ?? ""
+        )
+        _proteinPerServingText = State(
+            initialValue: recipe.map { Self.number($0.proteinPerServing) }
+                ?? prefilledNutrition.map { Self.number($0.protein) }
+                ?? ""
+        )
+        _carbohydratesPerServingText = State(
+            initialValue: recipe.map { Self.number($0.carbohydratesPerServing) }
+                ?? prefilledNutrition.map { Self.number($0.carbohydrates) }
+                ?? ""
+        )
+        _fatPerServingText = State(
+            initialValue: recipe.map { Self.number($0.fatPerServing) }
+                ?? prefilledNutrition.map { Self.number($0.fat) }
+                ?? ""
+        )
         _ingredients = State(initialValue: ingredients.sorted { $0.position < $1.position }.map(IngredientDraft.init))
         _steps = State(initialValue: steps.sorted { $0.position < $1.position }.map(StepDraft.init))
-    }
-
-    private var canSave: Bool {
-        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        ingredients.contains { !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } &&
-        steps.contains { !$0.instruction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
 
     var body: some View {
@@ -82,8 +92,8 @@ struct RecipeEditorView: View {
 
                 Section("Rezept") {
                     TextField("Name", text: $title)
-                    Stepper("Portionen: \(servings)", value: $servings, in: 1...50)
-                    Stepper("Zubereitungszeit: \(prepMinutes) Min.", value: $prepMinutes, in: 0...600, step: 5)
+                    Stepper("Portionen: \(servings)", value: $servings, in: 1 ... 50)
+                    Stepper("Zubereitungszeit: \(prepMinutes) Min.", value: $prepMinutes, in: 0 ... 600, step: 5)
                     TextField("Kategorie (optional)", text: $category)
                     TextField("Notiz (optional)", text: $note, axis: .vertical)
                     TextField("Bild-URL (optional)", text: $imageURL)
@@ -94,30 +104,7 @@ struct RecipeEditorView: View {
                         .textInputAutocapitalization(.never)
                 }
 
-                Section("Rezeptbücher") {
-                    if recipeBooks.isEmpty {
-                        Text("Noch keine Rezeptbücher angelegt.")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(recipeBooks) { book in
-                            Button {
-                                if selectedBookIDs.contains(book.id) {
-                                    selectedBookIDs.remove(book.id)
-                                } else {
-                                    selectedBookIDs.insert(book.id)
-                                }
-                            } label: {
-                                HStack {
-                                    Label(book.name, systemImage: "book")
-                                    Spacer()
-                                    Image(systemName: selectedBookIDs.contains(book.id) ? "checkmark.circle.fill" : "circle")
-                                        .foregroundStyle(selectedBookIDs.contains(book.id) ? accentColor : .secondary)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
+                recipeBookSection
 
                 Section("Nährwerte pro Portion (optional)") {
                     nutrientTextField("Kalorien", text: $caloriesPerServingText, unit: "kcal")
@@ -184,7 +171,13 @@ struct RecipeEditorView: View {
             } message: {
                 Text(errorMessage ?? "Bitte versuche es erneut.")
             }
-            .overlay { if isImporting { SwiftUI.ProgressView("Rezept wird importiert…").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16)) } }
+            .overlay {
+                if isImporting {
+                    SwiftUI.ProgressView("Rezept wird importiert…")
+                        .padding(24)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                }
+            }
             .onAppear {
                 if let recipe {
                     selectedBookIDs = Set(memberships.filter { $0.recipeID == recipe.id }.map(\.bookID))
@@ -193,107 +186,7 @@ struct RecipeEditorView: View {
         }
     }
 
-    private func save() {
-        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        if recipe == nil, existingRecipes.contains(where: { $0.title.compare(trimmedTitle, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }) {
-            errorMessage = "Ein Rezept mit diesem Namen existiert bereits."
-            return
-        }
-        let validIngredients = ingredients.enumerated().compactMap { index, draft -> IngredientDraft? in
-            guard !draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-            return draft.withPosition(index)
-        }
-        let validSteps = steps
-            .map { StepDraft(instruction: $0.instruction.trimmingCharacters(in: .whitespacesAndNewlines), durationSeconds: $0.durationSeconds) }
-            .filter { !$0.instruction.isEmpty }
-
-        let savedRecipe: Recipe
-        if let recipe {
-            savedRecipe = recipe
-            savedRecipe.title = trimmedTitle
-            savedRecipe.note = note
-            savedRecipe.servings = servings
-            savedRecipe.prepMinutes = prepMinutes
-            savedRecipe.category = category
-            savedRecipe.imageURL = imageURL
-            savedRecipe.sourceURL = sourceURL
-            savedRecipe.caloriesPerServing = parsed(caloriesPerServingText)
-            savedRecipe.proteinPerServing = parsed(proteinPerServingText)
-            savedRecipe.carbohydratesPerServing = parsed(carbohydratesPerServingText)
-            savedRecipe.fatPerServing = parsed(fatPerServingText)
-            savedRecipe.updatedAt = .now
-            do {
-                let recipeID = recipe.id
-                let descriptor = FetchDescriptor<RecipeIngredient>(predicate: #Predicate { $0.recipeID == recipeID })
-                try modelContext.fetch(descriptor).forEach(modelContext.delete)
-                let stepDescriptor = FetchDescriptor<RecipeStep>(predicate: #Predicate { $0.recipeID == recipeID })
-                try modelContext.fetch(stepDescriptor).forEach(modelContext.delete)
-                let membershipDescriptor = FetchDescriptor<RecipeBookMembership>(predicate: #Predicate { $0.recipeID == recipeID })
-                try modelContext.fetch(membershipDescriptor).forEach(modelContext.delete)
-            } catch {
-                errorMessage = error.localizedDescription
-                return
-            }
-        } else {
-            savedRecipe = Recipe(title: trimmedTitle, servings: servings, prepMinutes: prepMinutes, category: category, imageURL: imageURL, sourceURL: sourceURL)
-            savedRecipe.note = note
-            savedRecipe.caloriesPerServing = parsed(caloriesPerServingText)
-            savedRecipe.proteinPerServing = parsed(proteinPerServingText)
-            savedRecipe.carbohydratesPerServing = parsed(carbohydratesPerServingText)
-            savedRecipe.fatPerServing = parsed(fatPerServingText)
-            modelContext.insert(savedRecipe)
-        }
-
-        for (index, ingredient) in validIngredients.enumerated() {
-            modelContext.insert(RecipeIngredient(recipeID: savedRecipe.id, name: ingredient.name, amount: ingredient.amount, unit: ingredient.unit, position: index))
-        }
-        for (index, step) in validSteps.enumerated() {
-            modelContext.insert(RecipeStep(recipeID: savedRecipe.id, instruction: step.instruction, position: index, durationSeconds: step.durationSeconds))
-        }
-        for bookID in selectedBookIDs {
-            modelContext.insert(RecipeBookMembership(recipeID: savedRecipe.id, bookID: bookID))
-        }
-
-        do {
-            try modelContext.save()
-            dismiss()
-        } catch {
-            modelContext.rollback()
-            errorMessage = error.localizedDescription
-        }
-    }
-
-    private func stepRow(step: Binding<StepDraft>) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 10) {
-                Text(String(step.wrappedValue.position + 1))
-                .font(.headline)
-                .foregroundStyle(.secondary)
-                .frame(width: 24)
-                TextField("Zubereitungsschritt", text: step.instruction, axis: .vertical)
-            }
-            Stepper(
-                step.wrappedValue.durationSeconds == 0
-                    ? "Kein Schritt-Timer"
-                    : "Schritt-Timer: \(step.wrappedValue.durationSeconds / 60) Min.",
-                value: Binding(
-                    get: { step.wrappedValue.durationSeconds / 60 },
-                    set: { step.wrappedValue.durationSeconds = max(0, $0 * 60) }
-                ),
-                in: 0...180
-            )
-            .font(.caption)
-        }
-    }
-
-    private func nutrientTextField(_ title: String, text: Binding<String>, unit: String) -> some View {
-        HStack {
-            TextField(title, text: text).keyboardType(.decimalPad)
-            Text(unit).foregroundStyle(.secondary)
-        }
-    }
-
-    private func parsed(_ value: String) -> Double {
+    func parsed(_ value: String) -> Double {
         Double(value.replacingOccurrences(of: ",", with: ".")) ?? 0
     }
 
@@ -313,11 +206,11 @@ struct RecipeEditorView: View {
         fatPerServingText = Self.number(totals.fat)
         nutritionMessage = totals.unrecognizedIngredients == 0
             ? "Alle Zutaten wurden berücksichtigt."
-            : "(totals.unrecognizedIngredients) Zutat(en) konnten nicht zugeordnet werden und müssen geprüft werden."
+            : "\(totals.unrecognizedIngredients) Zutat(en) konnten nicht zugeordnet werden und müssen geprüft werden."
     }
 
     private static func number(_ value: Double) -> String {
-        value == 0 ? "" : value.formatted(.number.precision(.fractionLength(0...2)))
+        value == 0 ? "" : value.formatted(.number.precision(.fractionLength(0 ... 2)))
     }
 
     private func importRecipe() {
@@ -333,7 +226,9 @@ struct RecipeEditorView: View {
                     sourceURL = importURL.trimmingCharacters(in: .whitespacesAndNewlines)
                     servings = imported.servings
                     prepMinutes = imported.prepMinutes
-                    ingredients = imported.ingredients.map { IngredientDraft(amount: $0.amount, unit: $0.unit, name: $0.name) }
+                    ingredients = imported.ingredients.map {
+                        IngredientDraft(amount: $0.amount, unit: $0.unit, name: $0.name)
+                    }
                     steps = imported.steps.map { StepDraft(instruction: $0) }
                     isImporting = false
                 }
@@ -345,13 +240,42 @@ struct RecipeEditorView: View {
             }
         }
     }
+}
 
-    private var errorPresented: Binding<Bool> {
-        Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })
+private extension RecipeEditorView {
+    var recipeBookSection: some View {
+        Section("Rezeptbücher") {
+            if recipeBooks.isEmpty {
+                Text("Noch keine Rezeptbücher angelegt.")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(recipeBooks) { book in
+                    Button {
+                        if selectedBookIDs.contains(book.id) {
+                            selectedBookIDs.remove(book.id)
+                        } else {
+                            selectedBookIDs.insert(book.id)
+                        }
+                    } label: {
+                        HStack {
+                            Label(book.name, systemImage: "book")
+                            Spacer()
+                            Image(
+                                systemName: selectedBookIDs.contains(book.id)
+                                    ? "checkmark.circle.fill"
+                                    : "circle"
+                            )
+                            .foregroundStyle(selectedBookIDs.contains(book.id) ? accentColor : .secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
     }
 }
 
-private struct StepDraft: Identifiable {
+struct StepDraft: Identifiable {
     let id = UUID()
     var instruction = ""
     var durationSeconds = 0
@@ -370,7 +294,7 @@ private struct StepDraft: Identifiable {
     }
 }
 
-private struct IngredientDraft: Identifiable {
+struct IngredientDraft: Identifiable {
     let id = UUID()
     var amount = ""
     var unit = ""
@@ -388,5 +312,7 @@ private struct IngredientDraft: Identifiable {
         name = ingredient.name
     }
 
-    func withPosition(_ position: Int) -> IngredientDraft { self }
+    func withPosition(_: Int) -> IngredientDraft {
+        self
+    }
 }

@@ -25,7 +25,7 @@ import SwiftUI
                 TodoList.self,
                 TodoTask.self,
                 Habit.self,
-                HabitCompletion.self
+                HabitCompletion.self,
             ],
             inMemory: true
         )

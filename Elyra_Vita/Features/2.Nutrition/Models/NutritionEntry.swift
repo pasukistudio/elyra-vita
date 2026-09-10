@@ -10,7 +10,9 @@ enum NutritionMealType: String, CaseIterable, Identifiable {
     case dinner
     case snack
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var title: String {
         switch self {
@@ -49,7 +51,6 @@ enum NutritionMealType: String, CaseIterable, Identifiable {
 /// verändern spätere Katalogänderungen bereits geloggte Tage nicht rückwirkend.
 @Model
 final class NutritionEntry {
-
     // MARK: - Lebensmittel und Menge
 
     // CloudKit-kompatible Standardwerte für alle nicht optionalen Attribute.
@@ -104,7 +105,7 @@ final class NutritionEntry {
         let timestamp = Date()
         self.foodName = foodName
         self.brand = brand
-        self.mealTypeRawValue = mealType.rawValue
+        mealTypeRawValue = mealType.rawValue
         self.amount = max(0, amount)
         self.unit = unit
         self.pieceWeight = max(0, pieceWeight)
@@ -119,8 +120,8 @@ final class NutritionEntry {
         self.date = date
         self.source = source
         self.externalFoodID = externalFoodID
-        self.createdAt = timestamp
-        self.updatedAt = timestamp
+        createdAt = timestamp
+        updatedAt = timestamp
     }
 
     // MARK: - Darstellung und Änderungen
@@ -135,7 +136,7 @@ final class NutritionEntry {
         amount: Double,
         date: Date
     ) {
-        self.mealTypeRawValue = mealType.rawValue
+        mealTypeRawValue = mealType.rawValue
         self.amount = max(0, amount)
         self.date = date
         updatedAt = .now

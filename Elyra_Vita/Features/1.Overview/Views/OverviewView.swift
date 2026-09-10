@@ -1,11 +1,10 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 // MARK: - OverviewView
 
 /// Zeigt Tagesziele, Gesundheitswerte und den aktuellen Wasserverbrauch an.
 struct OverviewView: View {
-
     // MARK: - Daten
 
     /// Ermöglicht einen erneuten HealthKit-Ladevorgang nach dem App-Wechsel.
@@ -36,8 +35,8 @@ struct OverviewView: View {
 
     init(
         selectedDate: Date = .now,
-        calorieGoal: Int = 1_800,
-        waterGoal: Int = 2_500,
+        calorieGoal: Int = 1800,
+        waterGoal: Int = 2500,
         accentColor: Color,
         onOpenWaterTrend: @escaping () -> Void = {},
         onOpenHealthMetric: @escaping (HealthTrendMetric) -> Void = { _ in }
@@ -90,9 +89,9 @@ struct OverviewView: View {
         List {
             // MARK: - Tagesziele
 
-            /// Kalorien und Wasser werden kompakt in einer gemeinsamen Karte angezeigt.
+            // Kalorien und Wasser werden kompakt in einer gemeinsamen Karte angezeigt.
             Section {
-        CalorieWaterSummaryCard(
+                CalorieWaterSummaryCard(
                     consumedCalories: consumedCalories,
                     calorieGoal: calorieGoal,
                     consumedWater: consumedWater,
@@ -108,7 +107,7 @@ struct OverviewView: View {
 
             // MARK: - Tageswerte
 
-            /// Die Tageswertekarte bildet den zweiten Abschnitt der Übersicht.
+            // Die Tageswertekarte bildet den zweiten Abschnitt der Übersicht.
             Section {
                 DailyMetricsSummaryCard(
                     accentColor: accentColor,
@@ -143,7 +142,6 @@ struct OverviewView: View {
                     Text("Für diesen Tag wurden in Apple Health keine passenden Daten gefunden.")
                 }
             }
-
         }
         .listStyle(.insetGrouped)
         .task(id: selectedDate) {
@@ -195,14 +193,12 @@ struct OverviewView: View {
             healthErrorMessage = error.localizedDescription
         }
     }
-
 }
 
-
-
 // MARK: - Preview
+
 #Preview("OverviewView") {
-OverviewView(accentColor: .blue)
+    OverviewView(accentColor: .blue)
         .modelContainer(
             for: [WaterEntry.self, NutritionEntry.self, CustomFood.self, WeightEntry.self],
             inMemory: true
