@@ -19,7 +19,14 @@ final class Recipe {
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
 
-    init(title: String, servings: Int = 2, prepMinutes: Int = 0, category: String = "", imageURL: String = "", sourceURL: String = "") {
+    init(
+        title: String,
+        servings: Int = 2,
+        prepMinutes: Int = 0,
+        category: String = "",
+        imageURL: String = "",
+        sourceURL: String = ""
+    ) {
         let timestamp = Date()
         id = UUID()
         self.title = title.trimmingCharacters(in: .whitespacesAndNewlines)

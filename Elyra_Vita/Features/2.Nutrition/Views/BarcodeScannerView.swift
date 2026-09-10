@@ -1,12 +1,11 @@
+import AVFoundation
 import SwiftUI
 import VisionKit
-import AVFoundation
 
 // MARK: - BarcodeScannerView
 
 /// Native Apple-Scanner für EAN/UPC-Barcodes.
 struct BarcodeScannerView: UIViewControllerRepresentable {
-
     // MARK: - Eingaben
 
     let onBarcode: (String) -> Void
@@ -38,7 +37,7 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
         return controller
     }
 
-    func updateUIViewController(_ uiViewController: DataScannerViewController, context: Context) {}
+    func updateUIViewController(_: DataScannerViewController, context _: Context) {}
 
     // MARK: - Delegate
 
@@ -82,7 +81,11 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
             case .notDetermined:
                 AVCaptureDevice.requestAccess(for: .video) { granted in
                     DispatchQueue.main.async {
-                        if granted { start() } else { onUnavailable() }
+                        if granted {
+                            start()
+                        } else {
+                            onUnavailable()
+                        }
                     }
                 }
             case .denied, .restricted:
@@ -93,9 +96,9 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
         }
 
         func dataScanner(
-            _ dataScanner: DataScannerViewController,
+            _: DataScannerViewController,
             didAdd addedItems: [RecognizedItem],
-            allItems: [RecognizedItem]
+            allItems _: [RecognizedItem]
         ) {
             guard !didScan,
                   case let .barcode(barcode) = addedItems.first,

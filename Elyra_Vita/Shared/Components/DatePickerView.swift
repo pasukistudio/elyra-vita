@@ -1,5 +1,5 @@
-import SwiftUI
 import PasukiUI
+import SwiftUI
 
 // MARK: - DatePickerView
 
@@ -9,7 +9,6 @@ import PasukiUI
 /// Picker-Struktur liegt zentral im UI-Paket und kann später von Elyra Budget
 /// wiederverwendet werden.
 struct DatePickerView: View {
-
     // MARK: - Eingaben
 
     @Binding var selectedDate: Date

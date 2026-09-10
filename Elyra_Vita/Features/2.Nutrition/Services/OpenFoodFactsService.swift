@@ -7,7 +7,6 @@ import Foundation
 /// Die App speichert beim späteren Erfassen einen Nährwert-Snapshot. Änderungen
 /// an einem externen Produkt verändern dadurch keine alten Ernährungseinträge.
 struct OpenFoodFactsService {
-
     // MARK: - Konfiguration
 
     private let session: URLSession
@@ -35,7 +34,7 @@ struct OpenFoodFactsService {
             URLQueryItem(
                 name: "fields",
                 value: "code,product_name,product_name_de,brands,nutriments"
-            )
+            ),
         ]
 
         guard let url = components?.url else { throw OpenFoodFactsError.invalidURL }
@@ -68,7 +67,7 @@ struct OpenFoodFactsService {
             URLQueryItem(name: "action", value: "process"),
             URLQueryItem(name: "json", value: "1"),
             URLQueryItem(name: "page_size", value: "20"),
-            URLQueryItem(name: "fields", value: "code,product_name,product_name_de,brands,nutriments")
+            URLQueryItem(name: "fields", value: "code,product_name,product_name_de,brands,nutriments"),
         ]
 
         guard let url = components?.url else { throw OpenFoodFactsError.invalidURL }
@@ -91,7 +90,8 @@ struct OpenFoodFactsService {
 
         let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse,
-              200..<300 ~= httpResponse.statusCode else {
+              200 ..< 300 ~= httpResponse.statusCode
+        else {
             throw OpenFoodFactsError.httpError
         }
 
@@ -166,7 +166,7 @@ private struct Product: Decodable {
 
         let liquidTerms = [
             "milch", "drink", "getrank", "wasser", "saft", "juice", "cola",
-            "limonade", "smoothie", "shake", "sirup", "ol", "oel", "essig"
+            "limonade", "smoothie", "shake", "sirup", "ol", "oel", "essig",
         ]
         return liquidTerms.contains { searchableText.contains($0) }
             || searchableText.contains(" ml")
@@ -211,21 +211,48 @@ private struct Nutriments: Decodable {
         case salt100ml = "salt_100ml"
     }
 
-    var isLiquid: Bool { energyKcal100g == nil && energyKcal100ml != nil }
-    func caloriesPer100(isLiquid: Bool) -> Double { isLiquid ? energyKcal100ml ?? energyKcal100g ?? 0 : energyKcal100g ?? energyKcal100ml ?? 0 }
-    func proteinPer100(isLiquid: Bool) -> Double { isLiquid ? proteins100ml ?? proteins100g ?? 0 : proteins100g ?? proteins100ml ?? 0 }
-    func carbohydratesPer100(isLiquid: Bool) -> Double { isLiquid ? carbohydrates100ml ?? carbohydrates100g ?? 0 : carbohydrates100g ?? carbohydrates100ml ?? 0 }
-    func fatPer100(isLiquid: Bool) -> Double { isLiquid ? fat100ml ?? fat100g ?? 0 : fat100g ?? fat100ml ?? 0 }
-    func sugarPer100(isLiquid: Bool) -> Double { isLiquid ? sugars100ml ?? sugars100g ?? 0 : sugars100g ?? sugars100ml ?? 0 }
-    func fiberPer100(isLiquid: Bool) -> Double { isLiquid ? fiber100ml ?? fiber100g ?? 0 : fiber100g ?? fiber100ml ?? 0 }
-    func saturatedFatPer100(isLiquid: Bool) -> Double { isLiquid ? saturatedFat100ml ?? saturatedFat100g ?? 0 : saturatedFat100g ?? saturatedFat100ml ?? 0 }
-    func saltPer100(isLiquid: Bool) -> Double { isLiquid ? salt100ml ?? salt100g ?? 0 : salt100g ?? salt100ml ?? 0 }
+    var isLiquid: Bool {
+        energyKcal100g == nil && energyKcal100ml != nil
+    }
+
+    func caloriesPer100(isLiquid: Bool) -> Double {
+        isLiquid ? energyKcal100ml ?? energyKcal100g ?? 0 : energyKcal100g ?? energyKcal100ml ?? 0
+    }
+
+    func proteinPer100(isLiquid: Bool) -> Double {
+        isLiquid ? proteins100ml ?? proteins100g ?? 0 : proteins100g ?? proteins100ml ?? 0
+    }
+
+    func carbohydratesPer100(isLiquid: Bool) -> Double {
+        isLiquid ? carbohydrates100ml ?? carbohydrates100g ?? 0 : carbohydrates100g ?? carbohydrates100ml ?? 0
+    }
+
+    func fatPer100(isLiquid: Bool) -> Double {
+        isLiquid ? fat100ml ?? fat100g ?? 0 : fat100g ?? fat100ml ?? 0
+    }
+
+    func sugarPer100(isLiquid: Bool) -> Double {
+        isLiquid ? sugars100ml ?? sugars100g ?? 0 : sugars100g ?? sugars100ml ?? 0
+    }
+
+    func fiberPer100(isLiquid: Bool) -> Double {
+        isLiquid ? fiber100ml ?? fiber100g ?? 0 : fiber100g ?? fiber100ml ?? 0
+    }
+
+    func saturatedFatPer100(isLiquid: Bool) -> Double {
+        isLiquid ? saturatedFat100ml ?? saturatedFat100g ?? 0 : saturatedFat100g ?? saturatedFat100ml ?? 0
+    }
+
+    func saltPer100(isLiquid: Bool) -> Double {
+        isLiquid ? salt100ml ?? salt100g ?? 0 : salt100g ?? salt100ml ?? 0
+    }
+
     var hasNutritionData: Bool {
         [
             energyKcal100g, energyKcal100ml,
             proteins100g, proteins100ml,
             carbohydrates100g, carbohydrates100ml,
-            fat100g, fat100ml
+            fat100g, fat100ml,
         ].contains { $0 != nil }
     }
 }

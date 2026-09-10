@@ -1,44 +1,6 @@
 import Foundation
 import HealthKit
 
-// MARK: - HealthKit-Datenmodell
-
-// MARK: - Tageswerte
-
-/// Bündelt die aus Apple Health gelesenen Werte eines einzelnen Tages.
-struct HealthMetrics: Sendable {
-    // MARK: - Messwerte
-
-    let steps: Double?
-    let walkingRunningDistanceKilometers: Double?
-    let activeEnergyKilocalories: Double?
-    let basalEnergyKilocalories: Double?
-    let weightKilograms: Double?
-    let proteinGrams: Double?
-    let carbohydratesGrams: Double?
-    let fatGrams: Double?
-
-    var containsData: Bool {
-        steps != nil ||
-        walkingRunningDistanceKilometers != nil ||
-        activeEnergyKilocalories != nil ||
-        basalEnergyKilocalories != nil ||
-        weightKilograms != nil ||
-        proteinGrams != nil ||
-        carbohydratesGrams != nil ||
-        fatGrams != nil
-    }
-
-    /// Addiert aktive und Ruheenergie, sofern mindestens einer der Werte vorhanden ist.
-    var totalEnergyKilocalories: Double? {
-        guard activeEnergyKilocalories != nil || basalEnergyKilocalories != nil else {
-            return nil
-        }
-
-        return (activeEnergyKilocalories ?? 0) + (basalEnergyKilocalories ?? 0)
-    }
-}
-
 // MARK: - HealthKit-Service
 
 /// Kapselt Berechtigungsanfrage und Tagesabfragen gegenüber Apple Health.
@@ -89,15 +51,22 @@ final class HealthKitService {
 
         try await healthStore.requestAuthorization(toShare: [], read: readTypes)
     }
+}
 
-    // MARK: - Bereichsabfrage
+// MARK: - HealthKit-Abfragen
 
+extension HealthKitService {
     /// Lädt die vollständigen Tageswerte eines Zeitraums in wenigen
     /// StatisticsCollectionQueries. Dadurch muss ein Jahreschart nicht nur
     /// einzelne Stichprobentage abfragen.
     func dailyMetrics(from start: Date, to end: Date) async throws -> [Date: HealthMetrics] {
         guard !Self.isDisabledForCurrentProcess else { return [:] }
 
+        let values = await dailyHealthValues(from: start, to: end)
+        return makeDailyMetrics(from: start, to: end, values: values)
+    }
+
+    private func dailyHealthValues(from start: Date, to end: Date) async -> DailyHealthValues {
         async let steps = dailyCumulativeValues(
             .stepCount,
             unit: .count(),
@@ -144,44 +113,16 @@ final class HealthKitService {
 
         // Ein einzelner nicht lesbarer HealthKit-Typ darf die übrigen Werte
         // nicht ausblenden. Nicht verfügbare Metriken bleiben nil.
-        let values = await (
-            try? steps,
-            try? distance,
-            try? activeEnergy,
-            try? basalEnergy,
-            try? protein,
-            try? carbohydrates,
-            try? fat,
-            try? weight
+        return DailyHealthValues(
+            steps: try? await steps,
+            distance: try? await distance,
+            activeEnergy: try? await activeEnergy,
+            basalEnergy: try? await basalEnergy,
+            protein: try? await protein,
+            carbohydrates: try? await carbohydrates,
+            fat: try? await fat,
+            weight: try? await weight
         )
-
-        let calendar = Calendar.current
-        var result: [Date: HealthMetrics] = [:]
-        var date = calendar.startOfDay(for: start)
-
-        while date < end {
-            let metrics = HealthMetrics(
-            steps: values.0?[date],
-            walkingRunningDistanceKilometers: values.1?[date],
-            activeEnergyKilocalories: values.2?[date],
-            basalEnergyKilocalories: values.3?[date],
-            weightKilograms: values.7?[date],
-            proteinGrams: values.4?[date],
-            carbohydratesGrams: values.5?[date],
-            fatGrams: values.6?[date]
-            )
-
-            if metrics.containsData {
-                result[date] = metrics
-            }
-
-            guard let nextDate = calendar.date(byAdding: .day, value: 1, to: date) else {
-                break
-            }
-            date = nextDate
-        }
-
-        return result
     }
 
     // MARK: - Tagesabfrage
@@ -207,43 +148,51 @@ final class HealthKitService {
             throw HealthKitError.invalidDate
         }
 
-        async let steps = valueOrNil(
+        return await metrics(
+            from: start,
+            to: end,
+            date: date
+        )
+    }
+
+    private func metrics(from start: Date, to end: Date, date: Date) async -> HealthMetrics {
+        async let steps = cumulativeValue(
             .stepCount,
             unit: .count(),
             start: start,
             end: end
         )
-        async let distance = valueOrNil(
+        async let distance = cumulativeValue(
             .distanceWalkingRunning,
             unit: .meterUnit(with: .kilo),
             start: start,
             end: end
         )
-        async let activeEnergy = valueOrNil(
+        async let activeEnergy = cumulativeValue(
             .activeEnergyBurned,
             unit: .kilocalorie(),
             start: start,
             end: end
         )
-        async let basalEnergy = valueOrNil(
+        async let basalEnergy = cumulativeValue(
             .basalEnergyBurned,
             unit: .kilocalorie(),
             start: start,
             end: end
         )
-        async let protein = valueOrNil(
+        async let protein = cumulativeValue(
             .dietaryProtein,
             unit: .gram(),
             start: start,
             end: end
         )
-        async let carbohydrates = valueOrNil(
+        async let carbohydrates = cumulativeValue(
             .dietaryCarbohydrates,
             unit: .gram(),
             start: start,
             end: end
         )
-        async let fat = valueOrNil(
+        async let fat = cumulativeValue(
             .dietaryFatTotal,
             unit: .gram(),
             start: start,
@@ -255,7 +204,7 @@ final class HealthKitService {
             walkingRunningDistanceKilometers: try? await distance,
             activeEnergyKilocalories: try? await activeEnergy,
             basalEnergyKilocalories: try? await basalEnergy,
-            weightKilograms: try? await weightOrNil(on: date),
+            weightKilograms: try? await latestWeight(on: date),
             proteinGrams: try? await protein,
             carbohydratesGrams: try? await carbohydrates,
             fatGrams: try? await fat
@@ -356,20 +305,6 @@ final class HealthKitService {
         }
     }
 
-    private func valueOrNil(
-        _ identifier: HKQuantityTypeIdentifier,
-        unit: HKUnit,
-        start: Date,
-        end: Date
-    ) async throws -> Double? {
-        try await cumulativeValue(
-            identifier,
-            unit: unit,
-            start: start,
-            end: end
-        )
-    }
-
     private func cumulativeValue(
         _ identifier: HKQuantityTypeIdentifier,
         unit: HKUnit,
@@ -442,30 +377,10 @@ final class HealthKitService {
                 let weight = (samples?.first as? HKQuantitySample)?.quantity
                     .doubleValue(for: .gram())
 
-                continuation.resume(returning: weight.map { $0 / 1_000 })
+                continuation.resume(returning: weight.map { $0 / 1000 })
             }
 
             self.healthStore.execute(query)
-        }
-    }
-
-    private func weightOrNil(on date: Date) async throws -> Double? {
-        try await latestWeight(on: date)
-    }
-}
-
-// MARK: - Fehler
-
-enum HealthKitError: LocalizedError {
-    case unavailable
-    case invalidDate
-
-    var errorDescription: String? {
-        switch self {
-        case .unavailable:
-            return "Apple Health ist auf diesem Gerät nicht verfügbar."
-        case .invalidDate:
-            return "Das ausgewählte Datum konnte nicht verarbeitet werden."
         }
     }
 }

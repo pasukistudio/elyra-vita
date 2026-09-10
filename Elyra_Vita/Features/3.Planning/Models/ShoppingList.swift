@@ -17,10 +17,10 @@ final class ShoppingList {
 
     init(name: String) {
         let timestamp = Date()
-        self.id = UUID()
+        id = UUID()
         self.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        self.createdAt = timestamp
-        self.updatedAt = timestamp
+        createdAt = timestamp
+        updatedAt = timestamp
     }
 
     func update(name: String) {
@@ -59,15 +59,15 @@ final class ShoppingListItem {
         sortOrder: Int = 0
     ) {
         let timestamp = Date()
-        self.id = UUID()
+        id = UUID()
         self.listID = listID
         self.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         self.quantity = max(0, quantity)
         self.unit = unit
         self.note = note
         self.sortOrder = sortOrder
-        self.createdAt = timestamp
-        self.updatedAt = timestamp
+        createdAt = timestamp
+        updatedAt = timestamp
     }
 
     func update(
@@ -79,11 +79,19 @@ final class ShoppingListItem {
     ) {
         if let name {
             let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmedName.isEmpty { self.name = trimmedName }
+            if !trimmedName.isEmpty {
+                self.name = trimmedName
+            }
         }
-        if let quantity, quantity >= 0 { self.quantity = quantity }
-        if let unit { self.unit = unit }
-        if let note { self.note = note }
+        if let quantity, quantity >= 0 {
+            self.quantity = quantity
+        }
+        if let unit {
+            self.unit = unit
+        }
+        if let note {
+            self.note = note
+        }
         if let isCompleted {
             self.isCompleted = isCompleted
             completedAt = isCompleted ? .now : nil
@@ -112,12 +120,12 @@ final class ShoppingListItemHistory {
 
     init(listID: UUID, name: String) {
         let timestamp = Date()
-        self.id = UUID()
+        id = UUID()
         self.listID = listID
         self.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        self.lastUsedAt = timestamp
-        self.createdAt = timestamp
-        self.updatedAt = timestamp
+        lastUsedAt = timestamp
+        createdAt = timestamp
+        updatedAt = timestamp
     }
 
     func markUsed() {

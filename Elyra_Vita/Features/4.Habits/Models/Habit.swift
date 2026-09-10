@@ -7,7 +7,9 @@ enum HabitRecurrence: String, CaseIterable, Identifiable {
     case monthly
     case selectedDays
 
-    var id: Self { self }
+    var id: Self {
+        self
+    }
 
     var title: String {
         switch self {
@@ -25,7 +27,9 @@ enum HabitTimePreset: String, CaseIterable, Identifiable {
     case evening
     case custom
 
-    var id: Self { self }
+    var id: Self {
+        self
+    }
 
     var title: String {
         switch self {
@@ -107,21 +111,28 @@ final class Habit {
         case .monthly: return "\(targetCount)× pro Monat"
         case .selectedDays:
             let names = Calendar.current.shortStandaloneWeekdaySymbols
-            return (1...7).compactMap { selectedWeekdaysMask & (1 << ($0 - 1)) != 0 ? names[$0 - 1] : nil }.joined(separator: ", ")
+            return (1 ... 7)
+                .compactMap { selectedWeekdaysMask & (1 << ($0 - 1)) != 0 ? names[$0 - 1] : nil }
+                .joined(separator: ", ")
         }
     }
 
-    func update(name: String, note: String, recurrence: HabitRecurrence, weekdaysMask: Int, anchorDate: Date, targetCount: Int, preset: HabitTimePreset, hour: Int, minute: Int) {
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedName.isEmpty { self.name = trimmedName }
-        self.note = note
-        recurrenceRawValue = recurrence.rawValue
-        selectedWeekdaysMask = weekdaysMask
-        self.anchorDate = anchorDate
-        self.targetCount = min(max(targetCount, 1), recurrence == .monthly ? 31 : 7)
-        timePresetRawValue = preset.rawValue
-        reminderHour = min(max(hour, 0), 23)
-        reminderMinute = min(max(minute, 0), 59)
+    func update(with configuration: HabitUpdateConfiguration) {
+        let trimmedName = configuration.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedName.isEmpty {
+            name = trimmedName
+        }
+        note = configuration.note
+        recurrenceRawValue = configuration.recurrence.rawValue
+        selectedWeekdaysMask = configuration.weekdaysMask
+        anchorDate = configuration.anchorDate
+        targetCount = min(
+            max(configuration.targetCount, 1),
+            configuration.recurrence == .monthly ? 31 : 7
+        )
+        timePresetRawValue = configuration.preset.rawValue
+        reminderHour = min(max(configuration.hour, 0), 23)
+        reminderMinute = min(max(configuration.minute, 0), 59)
         updatedAt = .now
     }
 
@@ -157,79 +168,107 @@ final class Habit {
 
         switch recurrence {
         case .daily:
-            var cursor = today
-            if !completed.contains(cursor) {
-                guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor),
-                      completed.contains(previous) else { return 0 }
-                cursor = previous
-            }
-
-            var streak = 0
-            while completed.contains(cursor) {
-                streak += 1
-                guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
-                cursor = previous
-            }
-            return streak
+            return dailyStreak(endingAt: today, completed: completed, calendar: calendar)
 
         case .selectedDays:
-            func isScheduled(_ day: Date) -> Bool {
-                let weekday = calendar.component(.weekday, from: day)
-                return selectedWeekdaysMask & (1 << (weekday - 1)) != 0
-            }
-
-            var cursor = today
-            if !isScheduled(cursor) || !completed.contains(cursor) {
-                var foundPrevious = false
-                for _ in 0..<7 {
-                    guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
-                    cursor = previous
-                    if isScheduled(cursor) {
-                        foundPrevious = completed.contains(cursor)
-                        break
-                    }
-                }
-                guard foundPrevious else { return 0 }
-            }
-
-            var streak = 0
-            while isScheduled(cursor) && completed.contains(cursor) {
-                streak += 1
-                guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
-                cursor = previous
-                while !isScheduled(cursor) {
-                    guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { return streak }
-                    cursor = previous
-                }
-            }
-            return streak
+            return selectedDaysStreak(endingAt: today, completed: completed, calendar: calendar)
 
         case .weekly, .monthly:
-            let component: Calendar.Component = recurrence == .weekly ? .weekOfYear : .month
-            func periodIsComplete(_ periodDate: Date) -> Bool {
-                guard let interval = calendar.dateInterval(of: component, for: periodDate),
-                      let periodEnd = calendar.date(byAdding: component, value: 1, to: interval.start) else {
-                    return false
-                }
-                let count = completed.filter { $0 >= interval.start && $0 < periodEnd }.count
-                return count >= targetCount
-            }
-
-            var cursor = today
-            if !periodIsComplete(cursor) {
-                guard let previous = calendar.date(byAdding: component, value: -1, to: cursor),
-                      periodIsComplete(previous) else { return 0 }
-                cursor = previous
-            }
-
-            var streak = 0
-            while periodIsComplete(cursor) {
-                streak += 1
-                guard let previous = calendar.date(byAdding: component, value: -1, to: cursor) else { break }
-                cursor = previous
-            }
-            return streak
+            return periodStreak(endingAt: today, completed: completed, calendar: calendar)
         }
+    }
+
+    private func dailyStreak(endingAt date: Date, completed: Set<Date>, calendar: Calendar) -> Int {
+        var cursor = date
+        if !completed.contains(cursor) {
+            guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor),
+                  completed.contains(previous) else { return 0 }
+            cursor = previous
+        }
+
+        var streak = 0
+        while completed.contains(cursor) {
+            streak += 1
+            guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
+            cursor = previous
+        }
+        return streak
+    }
+
+    private func selectedDaysStreak(endingAt date: Date, completed: Set<Date>, calendar: Calendar) -> Int {
+        func isScheduled(_ day: Date) -> Bool {
+            let weekday = calendar.component(.weekday, from: day)
+            return selectedWeekdaysMask & (1 << (weekday - 1)) != 0
+        }
+
+        var cursor = date
+        if !isScheduled(cursor) || !completed.contains(cursor) {
+            guard let previous = previousScheduledDay(
+                before: cursor,
+                isScheduled: isScheduled,
+                calendar: calendar,
+                requireCompletionIn: completed
+            ) else { return 0 }
+            cursor = previous
+        }
+
+        var streak = 0
+        while isScheduled(cursor) && completed.contains(cursor) {
+            streak += 1
+            guard let previous = previousScheduledDay(
+                before: cursor,
+                isScheduled: isScheduled,
+                calendar: calendar
+            ) else { break }
+            cursor = previous
+        }
+        return streak
+    }
+
+    private func previousScheduledDay(
+        before date: Date,
+        isScheduled: (Date) -> Bool,
+        calendar: Calendar,
+        requireCompletionIn completed: Set<Date>? = nil
+    ) -> Date? {
+        var cursor = date
+        for _ in 0 ..< 7 {
+            guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { return nil }
+            cursor = previous
+            if isScheduled(cursor), completed.map({ $0.contains(cursor) }) ?? true {
+                return cursor
+            }
+        }
+        return nil
+    }
+
+    private func periodStreak(endingAt date: Date, completed: Set<Date>, calendar: Calendar) -> Int {
+        let component: Calendar.Component = recurrence == .weekly ? .weekOfYear : .month
+
+        func periodIsComplete(_ periodDate: Date) -> Bool {
+            guard let interval = calendar.dateInterval(of: component, for: periodDate),
+                  let periodEnd = calendar.date(byAdding: component, value: 1, to: interval.start)
+            else {
+                return false
+            }
+            let count = completed.filter { $0 >= interval.start && $0 < periodEnd }.count
+            return count >= targetCount
+        }
+
+        var cursor = date
+        if !periodIsComplete(cursor) {
+            guard let previous = calendar.date(byAdding: component, value: -1, to: cursor),
+                  periodIsComplete(previous) else { return 0 }
+            cursor = previous
+        }
+
+        var streak = 0
+        while periodIsComplete(cursor) {
+            streak += 1
+            guard let previous = calendar.date(byAdding: component, value: -1, to: cursor) else { break }
+            cursor = previous
+        }
+        return streak
     }
 }
 

@@ -9,7 +9,9 @@ enum HealthTrendRange: String, CaseIterable, Identifiable {
     case threeMonths
     case year
 
-    var id: Self { self }
+    var id: Self {
+        self
+    }
 
     var title: String {
         switch self {
@@ -28,7 +30,6 @@ enum HealthTrendRange: String, CaseIterable, Identifiable {
         case .year: 365
         }
     }
-
 }
 
 // MARK: - HealthTrendMetric
@@ -47,7 +48,9 @@ enum HealthTrendMetric: String, CaseIterable, Identifiable {
     case weight
     case water
 
-    var id: Self { self }
+    var id: Self {
+        self
+    }
 
     var title: String {
         switch self {
@@ -121,5 +124,7 @@ struct HealthTrendPoint: Identifiable, Sendable {
     let date: Date
     let value: Double
 
-    var id: Date { date }
+    var id: Date {
+        date
+    }
 }

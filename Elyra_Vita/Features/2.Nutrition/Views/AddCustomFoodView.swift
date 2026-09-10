@@ -1,11 +1,10 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 // MARK: - AddCustomFoodView
 
 /// Erfasst ein persönliches Lebensmittel inklusive vollständiger Nährwerte.
 struct AddCustomFoodView: View {
-
     // MARK: - Abhängigkeiten
 
     @Environment(\.dismiss) private var dismiss
@@ -42,16 +41,24 @@ struct AddCustomFoodView: View {
         _brand = State(initialValue: foodToEdit?.brand ?? "")
         _unit = State(initialValue: foodToEdit?.unit ?? "g")
         _pieceWeight = State(
-            initialValue: foodToEdit.map { $0.pieceWeight > 0 ? Self.editableNumber($0.pieceWeight) : "" } ?? ""
+            initialValue: foodToEdit.map {
+                $0.pieceWeight > 0 ? NutritionNumberParser.format($0.pieceWeight) : ""
+            } ?? ""
         )
-        _calories = State(initialValue: foodToEdit.map { Self.editableNumber($0.caloriesPer100) } ?? "")
-        _protein = State(initialValue: foodToEdit.map { Self.editableNumber($0.proteinPer100) } ?? "")
-        _carbohydrates = State(initialValue: foodToEdit.map { Self.editableNumber($0.carbohydratesPer100) } ?? "")
-        _fat = State(initialValue: foodToEdit.map { Self.editableNumber($0.fatPer100) } ?? "")
-        _sugar = State(initialValue: foodToEdit.map { Self.editableNumber($0.sugarPer100) } ?? "")
-        _fiber = State(initialValue: foodToEdit.map { Self.editableNumber($0.fiberPer100) } ?? "")
-        _saturatedFat = State(initialValue: foodToEdit.map { Self.editableNumber($0.saturatedFatPer100) } ?? "")
-        _salt = State(initialValue: foodToEdit.map { Self.editableNumber($0.saltPer100) } ?? "")
+        _calories = State(
+            initialValue: foodToEdit.map { NutritionNumberParser.format($0.caloriesPer100) } ?? ""
+        )
+        _protein = State(initialValue: foodToEdit.map { NutritionNumberParser.format($0.proteinPer100) } ?? "")
+        _carbohydrates = State(
+            initialValue: foodToEdit.map { NutritionNumberParser.format($0.carbohydratesPer100) } ?? ""
+        )
+        _fat = State(initialValue: foodToEdit.map { NutritionNumberParser.format($0.fatPer100) } ?? "")
+        _sugar = State(initialValue: foodToEdit.map { NutritionNumberParser.format($0.sugarPer100) } ?? "")
+        _fiber = State(initialValue: foodToEdit.map { NutritionNumberParser.format($0.fiberPer100) } ?? "")
+        _saturatedFat = State(
+            initialValue: foodToEdit.map { NutritionNumberParser.format($0.saturatedFatPer100) } ?? ""
+        )
+        _salt = State(initialValue: foodToEdit.map { NutritionNumberParser.format($0.saltPer100) } ?? "")
     }
 
     private var canSave: Bool {
@@ -74,7 +81,7 @@ struct AddCustomFoodView: View {
     private var nutrientValues: [Double]? {
         let values = [calories, protein, carbohydrates, fat, sugar, fiber, saturatedFat, salt]
             .map(parseNutrientNumber)
-        guard values.allSatisfy({ $0 != nil && $0! >= 0 }) else { return nil }
+        guard values.allSatisfy({ $0.map { $0 >= 0 } ?? false }) else { return nil }
         return values.compactMap { $0 }
     }
 
@@ -124,7 +131,11 @@ struct AddCustomFoodView: View {
                 "Lebensmittel konnte nicht gespeichert werden",
                 isPresented: Binding(
                     get: { saveErrorMessage != nil },
-                    set: { if !$0 { saveErrorMessage = nil } }
+                    set: {
+                        if !$0 {
+                            saveErrorMessage = nil
+                        }
+                    }
                 )
             ) {
                 Button("OK", role: .cancel) { saveErrorMessage = nil }
@@ -150,9 +161,7 @@ struct AddCustomFoodView: View {
     }
 
     private func parseNumber(_ value: String) -> Double? {
-        guard let number = Double(value.replacingOccurrences(of: ",", with: ".")),
-              number.isFinite else { return nil }
-        return number
+        NutritionNumberParser.parse(value)
     }
 
     private func parseNutrientNumber(_ value: String) -> Double? {
@@ -211,12 +220,6 @@ struct AddCustomFoodView: View {
             }
             saveErrorMessage = error.localizedDescription
         }
-    }
-
-    private static func editableNumber(_ value: Double) -> String {
-        String(format: "%.2f", value)
-            .replacingOccurrences(of: ".00", with: "")
-            .replacingOccurrences(of: ".", with: ",")
     }
 }
 

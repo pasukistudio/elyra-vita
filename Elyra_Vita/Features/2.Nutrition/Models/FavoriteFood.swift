@@ -9,7 +9,6 @@ import SwiftData
 /// gleichermaßen favorisiert und offline wieder ausgewählt werden.
 @Model
 final class FavoriteFood {
-
     var id: String = ""
     var name: String = ""
     var brand: String = ""

@@ -1,7 +1,7 @@
-import SwiftUI
-import SwiftData
 import OSLog
 import PasukiUI
+import SwiftData
+import SwiftUI
 
 // MARK: - AddWaterView
 
@@ -14,7 +14,7 @@ struct AddWaterView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var customAmountText = ""
     @State private var editingEntry: WaterEntry?
-    @State private var entryToDelete: WaterEntry?
+    @State var entryToDelete: WaterEntry?
     @State private var deleteErrorMessage: String?
     @FocusState private var customAmountFocused: Bool
 
@@ -101,7 +101,10 @@ struct AddWaterView: View {
                 }
             } message: {
                 if let entryToDelete {
-                    Text("\(formattedAmount(entryToDelete.amount)) ml um \(entryToDelete.date, format: .dateTime.hour().minute()) wirklich löschen?")
+                    Text(formattedAmount(entryToDelete.amount))
+                        + Text(" ml um ")
+                        + Text(entryToDelete.date, format: .dateTime.hour().minute())
+                        + Text(" wirklich löschen?")
                 }
             }
             .alert(
@@ -212,65 +215,9 @@ struct AddWaterView: View {
         .appCard()
     }
 
-    // MARK: - Tageslogbuch
-
-    private var dailyLogCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionTitle("Tageslogbuch", systemImage: "clock.fill")
-
-            if entriesForSelectedDay.isEmpty {
-                Text("Für diesen Tag gibt es noch keine Einträge.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 4)
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(entriesForSelectedDay) { entry in
-                        HStack(spacing: 12) {
-                            Image(systemName: "drop")
-                                .foregroundStyle(accentColor)
-                                .frame(width: 28)
-
-                            Text(formattedAmount(entry.amount) + " ml")
-                                .font(.body.weight(.medium))
-
-                            Spacer()
-
-                            Text(entry.date, format: .dateTime.hour().minute())
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .monospacedDigit()
-
-                            Button {
-                                entryToDelete = entry
-                            } label: {
-                                Image(systemName: "trash")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.red)
-                                    .frame(width: 32, height: 32)
-                            }
-                            .buttonStyle(.borderless)
-                            .accessibilityLabel(
-                                "\(formattedAmount(entry.amount)) Milliliter löschen"
-                            )
-                        }
-                        .padding(.vertical, 9)
-
-                        if entry.id != entriesForSelectedDay.last?.id {
-                            Divider()
-                                .padding(.leading, 40)
-                        }
-                    }
-                }
-            }
-        }
-        .appCard()
-    }
-
     // MARK: - Aktionen und Werte
 
-    private func sectionTitle(_ title: String, systemImage: String) -> some View {
+    func sectionTitle(_ title: String, systemImage: String) -> some View {
         Label(title, systemImage: systemImage)
             .font(.headline)
     }
@@ -281,7 +228,7 @@ struct AddWaterView: View {
         return amount
     }
 
-    private var entriesForSelectedDay: [WaterEntry] {
+    var entriesForSelectedDay: [WaterEntry] {
         waterEntries.filter {
             Calendar.current.isDate($0.date, inSameDayAs: selectedDate)
         }
@@ -342,7 +289,7 @@ struct AddWaterView: View {
         }
     }
 
-    private func formattedAmount(_ amount: Int) -> String {
+    func formattedAmount(_ amount: Int) -> String {
         amount.formatted(.number.locale(Locale(identifier: "de_DE")))
     }
 }

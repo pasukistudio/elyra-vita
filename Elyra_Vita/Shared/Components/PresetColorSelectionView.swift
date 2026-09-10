@@ -1,5 +1,5 @@
-import SwiftUI
 import PasukiUI
+import SwiftUI
 
 // MARK: - PresetColorSelectionView
 
@@ -14,14 +14,14 @@ struct PresetColorSelectionView: View {
     var title: LocalizedStringResource = "Icon-Farbe"
 
     /// Wird ausgefuehrt, wenn ein festes Preset ausgewaehlt wurde.
-    var onPresetSelected: ((ColorPreset) -> Void)? = nil
+    var onPresetSelected: ((ColorPreset) -> Void)?
 
     /// Wird ausgefuehrt, wenn der Benutzer eine eigene Farbe waehlt.
-    var onCustomColorChanged: ((String) -> Void)? = nil
+    var onCustomColorChanged: ((String) -> Void)?
 
     /// Optionaler gemeinsamer Pro-Zugriff. Ohne Service bleibt die bisherige
     /// freie Auswahl aktiv, bis die App ihren StoreKit-Service einspeist.
-    var proAccess: (any PasukiProAccess)? = nil
+    var proAccess: (any PasukiProAccess)?
 
     /// Anzahl und Verhalten der Spalten im Farbraster.
     var columns: [GridItem] = Array(

@@ -9,7 +9,7 @@ enum AppSection: String, CaseIterable, Identifiable {
     case overview
     case nutrition
     case planning
-    case recipies
+    case recipes
 
     // MARK: - Identifiable
 
@@ -30,7 +30,7 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .planning:
             return "Planung"
 
-        case .recipies:
+        case .recipes:
             return "Rezepte"
         }
     }
@@ -48,7 +48,7 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .planning:
             return "calendar.badge.checkmark"
 
-        case .recipies:
+        case .recipes:
             return "book.closed.fill"
         }
     }

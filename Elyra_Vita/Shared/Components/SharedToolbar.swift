@@ -1,11 +1,10 @@
-import SwiftUI
 import PasukiUI
+import SwiftUI
 
 // MARK: - SharedToolbar
 
 /// Aktionen, die im Plus-Menü der jeweiligen App-Seite angeboten werden.
 enum SharedToolbarAction: String, CaseIterable, Identifiable {
-
     // MARK: - Aktionen
 
     case meal
@@ -18,7 +17,9 @@ enum SharedToolbarAction: String, CaseIterable, Identifiable {
 
     // MARK: - Identifiable
 
-    var id: Self { self }
+    var id: Self {
+        self
+    }
 
     // MARK: - Seitenkonfiguration
 

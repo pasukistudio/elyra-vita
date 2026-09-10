@@ -1,11 +1,10 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 // MARK: - FavoritesView
 
 /// Eigene Übersicht für favorisierte Lebensmittel.
 struct FavoritesView: View {
-
     @Environment(\.modelContext) private var modelContext
 
     @Query(sort: \FavoriteFood.updatedAt, order: .reverse)
@@ -56,7 +55,11 @@ struct FavoritesView: View {
         }
         .alert("Favorit konnte nicht entfernt werden", isPresented: Binding(
             get: { errorMessage != nil },
-            set: { if !$0 { errorMessage = nil } }
+            set: {
+                if !$0 {
+                    errorMessage = nil
+                }
+            }
         )) {
             Button("OK", role: .cancel) { errorMessage = nil }
         } message: {
@@ -74,9 +77,11 @@ struct FavoritesView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(favorite.name)
                     .font(.body.weight(.semibold))
-                Text(favorite.brand.isEmpty
-                    ? "\(favorite.caloriesPer100.formatted(.number.precision(.fractionLength(0)))) kcal / 100 \(favorite.unit)"
-                    : favorite.brand
+                Text(
+                    favorite.brand.isEmpty
+                        ? "\(favorite.caloriesPer100.formatted(.number.precision(.fractionLength(0)))) kcal / 100 "
+                        + favorite.unit
+                        : favorite.brand
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)

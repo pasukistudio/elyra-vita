@@ -6,7 +6,6 @@ import SwiftData
 /// Eine manuelle Gewichtsmessung zu einem bestimmten Zeitpunkt.
 @Model
 final class WeightEntry {
-
     // MARK: - Messung
 
     // CloudKit-kompatible Standardwerte für den SwiftData-Store.
@@ -27,8 +26,8 @@ final class WeightEntry {
         let timestamp = Date()
         self.date = date
         self.weightKilograms = max(0.1, weightKilograms)
-        self.createdAt = timestamp
-        self.updatedAt = timestamp
+        createdAt = timestamp
+        updatedAt = timestamp
     }
 
     // MARK: - Änderungen

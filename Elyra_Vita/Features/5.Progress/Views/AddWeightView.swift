@@ -1,13 +1,12 @@
-import SwiftUI
-import SwiftData
 import OSLog
 import PasukiUI
+import SwiftData
+import SwiftUI
 
 // MARK: - AddWeightView
 
 /// Erfasst eine Gewichtsmessung und zeigt die Messungen des ausgewählten Tages.
 struct AddWeightView: View {
-
     // MARK: - Abhängigkeiten und Zustand
 
     @Environment(\.dismiss) private var dismiss
@@ -16,12 +15,12 @@ struct AddWeightView: View {
     @Query(sort: \WeightEntry.date, order: .reverse)
     private var entries: [WeightEntry]
 
-    @State private var weightText = ""
-    @State private var editingEntry: WeightEntry?
-    @State private var entryToDelete: WeightEntry?
+    @State var weightText = ""
+    @State var editingEntry: WeightEntry?
+    @State var entryToDelete: WeightEntry?
     @State private var pendingReplacementWeight: Double?
     @State private var errorMessage: String?
-    @FocusState private var weightFocused: Bool
+    @FocusState var weightFocused: Bool
 
     private let logger = Logger(
         subsystem: "de.pasukistudio.elyra-vita",
@@ -71,7 +70,9 @@ struct AddWeightView: View {
                 isPresented: Binding(
                     get: { entryToDelete != nil },
                     set: { isPresented in
-                        if !isPresented { entryToDelete = nil }
+                        if !isPresented {
+                            entryToDelete = nil
+                        }
                     }
                 ),
                 titleVisibility: .visible
@@ -90,7 +91,9 @@ struct AddWeightView: View {
                 isPresented: Binding(
                     get: { pendingReplacementWeight != nil },
                     set: { isPresented in
-                        if !isPresented { pendingReplacementWeight = nil }
+                        if !isPresented {
+                            pendingReplacementWeight = nil
+                        }
                     }
                 ),
                 titleVisibility: .visible
@@ -109,7 +112,9 @@ struct AddWeightView: View {
                 isPresented: Binding(
                     get: { errorMessage != nil },
                     set: { isPresented in
-                        if !isPresented { errorMessage = nil }
+                        if !isPresented {
+                            errorMessage = nil
+                        }
                     }
                 )
             ) {
@@ -128,7 +133,7 @@ struct AddWeightView: View {
                 inputTitle,
                 systemImage: "scalemass.fill"
             )
-                .font(.headline)
+            .font(.headline)
 
             HStack(spacing: 12) {
                 TextField("z. B. 72,5", text: $weightText)
@@ -180,72 +185,6 @@ struct AddWeightView: View {
         .appCard()
     }
 
-    // MARK: - Tageslogbuch
-
-    private var dailyLogCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Label("Tageslogbuch", systemImage: "clock.fill")
-                .font(.headline)
-
-            if entriesForSelectedDay.isEmpty {
-                Text("Für diesen Tag gibt es noch keine Messung.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(entriesForSelectedDay) { entry in
-                    HStack(spacing: 12) {
-                        Image(systemName: "scalemass")
-                            .foregroundStyle(accentColor)
-                            .frame(width: 28)
-
-                        Text(entry.weightKilograms, format: .number.precision(.fractionLength(1)))
-                            .font(.body.weight(.medium))
-
-                        Text("kg")
-                            .foregroundStyle(.secondary)
-
-                        Spacer()
-
-                        Text(entry.date, format: .dateTime.hour().minute())
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-
-                        Button {
-                            editingEntry = entry
-                            weightText = entry.weightKilograms.formatted(
-                                .number.locale(Locale(identifier: "de_DE"))
-                            )
-                            weightFocused = true
-                        } label: {
-                            Image(systemName: "pencil")
-                                .foregroundStyle(accentColor)
-                                .frame(width: 32, height: 32)
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel("Gewichtseintrag bearbeiten")
-
-                        Button {
-                            entryToDelete = entry
-                        } label: {
-                            Image(systemName: "trash")
-                                .foregroundStyle(.red)
-                                .frame(width: 32, height: 32)
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel("Gewichtseintrag löschen")
-                    }
-                    .padding(.vertical, 7)
-
-                    if entry.id != entriesForSelectedDay.last?.id {
-                        Divider()
-                    }
-                }
-            }
-        }
-        .appCard()
-    }
-
     // MARK: - Aktionen und Werte
 
     private var parsedWeight: Double? {
@@ -257,7 +196,7 @@ struct AddWeightView: View {
         return value
     }
 
-    private var entriesForSelectedDay: [WeightEntry] {
+    var entriesForSelectedDay: [WeightEntry] {
         entries.filter {
             Calendar.current.isDate($0.date, inSameDayAs: selectedDate)
         }
@@ -265,10 +204,15 @@ struct AddWeightView: View {
 
     private var inputTitle: String {
         // MARK: - Tagesregel sichtbar machen
+
         // Nach der ersten Messung wird keine zweite Messung angelegt,
         // sondern der bestehende Tageswert ersetzt.
-        if editingEntry != nil { return "Messung bearbeiten" }
-        if entriesForSelectedDay.isEmpty { return "Neue Messung" }
+        if editingEntry != nil {
+            return "Messung bearbeiten"
+        }
+        if entriesForSelectedDay.isEmpty {
+            return "Neue Messung"
+        }
         return "Messung ersetzen"
     }
 
@@ -291,6 +235,7 @@ struct AddWeightView: View {
         }
 
         // MARK: - Eine Messung pro Kalendertag
+
         // Bestehende Daten bleiben erhalten, aber neue Eingaben für denselben
         // Tag aktualisieren den Tageswert statt einen zweiten Datensatz zu
         // erzeugen. Der ursprüngliche Messzeitpunkt bleibt dabei erhalten.
@@ -325,6 +270,7 @@ struct AddWeightView: View {
 
     private func replaceExistingWeight() {
         // MARK: - Ersetzung bestätigen
+
         guard let pendingReplacementWeight,
               let existingEntry = entriesForSelectedDay.first
         else { return }

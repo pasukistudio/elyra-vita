@@ -10,7 +10,6 @@ import SwiftData
 /// spätere Konfliktprüfungen nachvollziehbar.
 @Model
 final class CustomFood {
-
     // MARK: - Identität und Beschreibung
 
     var id: String = UUID().uuidString
@@ -53,7 +52,7 @@ final class CustomFood {
         saltPer100: Double = 0
     ) {
         let timestamp = Date()
-        self.id = UUID().uuidString
+        id = UUID().uuidString
         self.name = name
         self.brand = brand
         self.unit = unit
@@ -66,8 +65,8 @@ final class CustomFood {
         self.fiberPer100 = max(0, fiberPer100)
         self.saturatedFatPer100 = max(0, saturatedFatPer100)
         self.saltPer100 = max(0, saltPer100)
-        self.createdAt = timestamp
-        self.updatedAt = timestamp
+        createdAt = timestamp
+        updatedAt = timestamp
     }
 
     // MARK: - Umwandlung

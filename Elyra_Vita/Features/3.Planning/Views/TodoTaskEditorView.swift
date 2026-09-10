@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct TodoTaskEditorView: View {
     @Environment(\.dismiss) private var dismiss
@@ -29,7 +29,7 @@ struct TodoTaskEditorView: View {
                 Section("Aufgabe") {
                     TextField("Titel", text: $title)
                     TextField("Notiz (optional)", text: $note, axis: .vertical)
-                        .lineLimit(2...5)
+                        .lineLimit(2 ... 5)
                 }
 
                 Section("Planung") {

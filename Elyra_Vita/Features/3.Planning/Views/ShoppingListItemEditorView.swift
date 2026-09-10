@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 // MARK: - ShoppingListItemEditorView
 
@@ -26,17 +26,17 @@ struct ShoppingListItemEditorView: View {
         let activeNames = allItems
             .filter { candidate in
                 candidate.listID == listID &&
-                candidate.id != item?.id &&
-                candidate.name.localizedCaseInsensitiveContains(query) &&
-                candidate.name.compare(query, options: .caseInsensitive) != .orderedSame
+                    candidate.id != item?.id &&
+                    candidate.name.localizedCaseInsensitiveContains(query) &&
+                    candidate.name.compare(query, options: .caseInsensitive) != .orderedSame
             }
             .map(\.name)
 
         let historyNames = itemHistory
             .filter { candidate in
                 candidate.listID == listID &&
-                candidate.name.localizedCaseInsensitiveContains(query) &&
-                candidate.name.compare(query, options: .caseInsensitive) != .orderedSame
+                    candidate.name.localizedCaseInsensitiveContains(query) &&
+                    candidate.name.compare(query, options: .caseInsensitive) != .orderedSame
             }
             .sorted { $0.lastUsedAt > $1.lastUsedAt }
             .map(\.name)
@@ -141,10 +141,10 @@ struct ShoppingListItemEditorView: View {
 
         if let existing = itemHistory.first(where: {
             $0.listID == listID &&
-            $0.name.folding(
-                options: [.caseInsensitive, .diacriticInsensitive],
-                locale: .current
-            ) == normalizedName
+                $0.name.folding(
+                    options: [.caseInsensitive, .diacriticInsensitive],
+                    locale: .current
+                ) == normalizedName
         }) {
             existing.markUsed()
         } else {
@@ -153,6 +153,6 @@ struct ShoppingListItemEditorView: View {
     }
 
     private static func number(_ value: Double) -> String {
-        value.formatted(.number.precision(.fractionLength(0...2)))
+        value.formatted(.number.precision(.fractionLength(0 ... 2)))
     }
 }

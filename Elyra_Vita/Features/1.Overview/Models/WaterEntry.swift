@@ -4,7 +4,6 @@ import SwiftData
 /// Ein einzelner Wassereintrag für einen bestimmten Zeitpunkt.
 @Model
 final class WaterEntry {
-
     // MARK: - Trinkereignis
 
     // CloudKit benötigt für alle nicht-optionalen Attribute einen
@@ -24,8 +23,8 @@ final class WaterEntry {
         let timestamp = Date()
         self.date = date
         self.amount = amount
-        self.createdAt = timestamp
-        self.updatedAt = timestamp
+        createdAt = timestamp
+        updatedAt = timestamp
     }
 
     // MARK: - Änderungen

@@ -1,11 +1,10 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 // MARK: - CustomFoodsView
 
 /// Verwaltung der persönlichen Lebensmittel außerhalb des Tageslogbuchs.
 struct CustomFoodsView: View {
-
     @Environment(\.modelContext) private var modelContext
 
     @Query(sort: \CustomFood.name)
@@ -68,7 +67,11 @@ struct CustomFoodsView: View {
             "Eigenes Lebensmittel löschen?",
             isPresented: Binding(
                 get: { deletingFood != nil },
-                set: { if !$0 { deletingFood = nil } }
+                set: {
+                    if !$0 {
+                        deletingFood = nil
+                    }
+                }
             ),
             titleVisibility: .visible
         ) {
@@ -81,7 +84,11 @@ struct CustomFoodsView: View {
             "Lebensmittel konnte nicht gelöscht werden",
             isPresented: Binding(
                 get: { errorMessage != nil },
-                set: { if !$0 { errorMessage = nil } }
+                set: {
+                    if !$0 {
+                        errorMessage = nil
+                    }
+                }
             )
         ) {
             Button("OK", role: .cancel) { errorMessage = nil }
@@ -109,9 +116,14 @@ struct CustomFoodsView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(food.name)
                     .font(.body.weight(.semibold))
-                Text(food.brand.isEmpty ? "\(food.caloriesPer100.formatted(.number.precision(.fractionLength(0)))) kcal / 100 \(food.unit)" : food.brand)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text(
+                    food.brand.isEmpty
+                        ? "\(food.caloriesPer100.formatted(.number.precision(.fractionLength(0)))) kcal / 100 "
+                        + food.unit
+                        : food.brand
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
 
             Spacer()

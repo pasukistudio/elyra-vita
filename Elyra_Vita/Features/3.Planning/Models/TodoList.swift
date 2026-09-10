@@ -74,11 +74,19 @@ final class TodoTask {
     ) {
         if let title {
             let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmedTitle.isEmpty { self.title = trimmedTitle }
+            if !trimmedTitle.isEmpty {
+                self.title = trimmedTitle
+            }
         }
-        if let note { self.note = note }
-        if let dueDate { self.dueDate = dueDate }
-        if let priority { self.priority = min(max(priority, 0), 2) }
+        if let note {
+            self.note = note
+        }
+        if let dueDate {
+            self.dueDate = dueDate
+        }
+        if let priority {
+            self.priority = min(max(priority, 0), 2)
+        }
         if let isCompleted {
             self.isCompleted = isCompleted
             completedAt = isCompleted ? .now : nil

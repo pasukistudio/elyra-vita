@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct RecipeBooksView: View {
     @Environment(\.elyraAccentColor) private var accentColor
@@ -15,7 +15,11 @@ struct RecipeBooksView: View {
         NavigationStack {
             List {
                 if books.isEmpty {
-                    ContentUnavailableView("Noch keine Rezeptbücher", systemImage: "books.vertical", description: Text("Lege ein Rezeptbuch an, um deine Rezepte zu organisieren."))
+                    ContentUnavailableView(
+                        "Noch keine Rezeptbücher",
+                        systemImage: "books.vertical",
+                        description: Text("Lege ein Rezeptbuch an, um deine Rezepte zu organisieren.")
+                    )
                 } else {
                     ForEach(books) { book in
                         HStack {
@@ -44,7 +48,11 @@ struct RecipeBooksView: View {
             }
             .sheet(isPresented: $showingEditor) { RecipeBookEditorView() }
             .sheet(item: $editingBook) { RecipeBookEditorView(book: $0) }
-            .alert("Rezeptbuch löschen?", isPresented: deletingPresented, presenting: deletingBook) { book in
+            .alert(
+                "Rezeptbuch löschen?",
+                isPresented: deletingPresented,
+                presenting: deletingBook
+            ) { book in
                 Button("Löschen", role: .destructive) { delete(book) }
                 Button("Abbrechen", role: .cancel) { deletingBook = nil }
             } message: { book in
@@ -56,11 +64,17 @@ struct RecipeBooksView: View {
     private func delete(_ book: RecipeBook) {
         memberships.filter { $0.bookID == book.id }.forEach(modelContext.delete)
         modelContext.delete(book)
-        if PersistenceErrorReporter.save(modelContext, operation: "Rezeptbuch löschen") { deletingBook = nil }
+        if PersistenceErrorReporter.save(modelContext, operation: "Rezeptbuch löschen") {
+            deletingBook = nil
+        }
     }
 
     private var deletingPresented: Binding<Bool> {
-        Binding(get: { deletingBook != nil }, set: { if !$0 { deletingBook = nil } })
+        Binding(get: { deletingBook != nil }, set: {
+            if !$0 {
+                deletingBook = nil
+            }
+        })
     }
 }
 
@@ -83,7 +97,8 @@ struct RecipeBookEditorView: View {
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("Sichern") { save() }.disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        Button("Sichern") { save() }
+                            .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
         }
@@ -98,6 +113,8 @@ struct RecipeBookEditorView: View {
         } else {
             modelContext.insert(RecipeBook(name: trimmedName))
         }
-        if PersistenceErrorReporter.save(modelContext, operation: "Rezeptbuch speichern") { dismiss() }
+        if PersistenceErrorReporter.save(modelContext, operation: "Rezeptbuch speichern") {
+            dismiss()
+        }
     }
 }

@@ -1,35 +1,7 @@
-import SwiftUI
-import SwiftData
-import OSLog
 import PasukiUI
+import SwiftData
+import SwiftUI
 import UserNotifications
-
-extension Notification.Name {
-    static let persistenceError = Notification.Name("ElyraVita.PersistenceError")
-}
-
-@MainActor
-enum PersistenceErrorReporter {
-    @discardableResult
-    static func save(_ context: ModelContext, operation: String, onError: ((String) -> Void)? = nil) -> Bool {
-        do {
-            try context.save()
-            return true
-        } catch {
-            context.rollback()
-            let message = error.localizedDescription
-            Logger(subsystem: "de.pasukistudio.elyra-vita", category: "Persistence")
-                .error("\(operation, privacy: .public) fehlgeschlagen: \(message, privacy: .public)")
-            onError?(message)
-            // Views mit eigenem Fehlerzustand zeigen die Meldung selbst. Der
-            // globale Alert ist nur der Fallback für Aufrufer ohne Callback.
-            if onError == nil {
-                NotificationCenter.default.post(name: .persistenceError, object: message)
-            }
-            return false
-        }
-    }
-}
 
 // MARK: - ContentView
 
@@ -39,39 +11,34 @@ struct ContentView: View {
 
     @Environment(\.modelContext) private var modelContext
 
-    private let logger = Logger(
-        subsystem: "de.pasukistudio.elyra-vita",
-        category: "Water"
-    )
-
     // MARK: - Navigation und Auswahl
 
     /// Der aktuell aktive Tab.
-    @State private var selectedSection: AppSection = .overview
+    @State var selectedSection: AppSection = .overview
 
     /// Das Datum der gemeinsamen Datumsnavigation.
-    @State private var selectedDate = Date()
+    @State var selectedDate = Date()
 
     /// Steuert die Präsentation der Datumsauswahl.
-    @State private var showingDatePicker = false
+    @State var showingDatePicker = false
 
     /// Steuert die Präsentation der Ansicht zum Wasser hinzufügen.
-    @State private var showingAddWater = false
+    @State var showingAddWater = false
 
     /// Steuert die Präsentation der Ansicht zum Gewicht erfassen.
-    @State private var showingAddWeight = false
+    @State var showingAddWeight = false
 
     /// Steuert die Präsentation der Ansicht zum Ernährungseintrag.
-    @State private var showingAddNutrition = false
+    @State var showingAddNutrition = false
 
     /// Mahlzeitentyp, der aus dem Toolbar-Menü vorgewählt wurde.
-    @State private var selectedNutritionMealType: NutritionMealType = .snack
+    @State var selectedNutritionMealType: NutritionMealType = .snack
 
     /// Gespeicherte Einstellungen, automatisch von SwiftData beobachtet.
-    @Query private var userSettings: [UserSettings]
+    @Query var userSettings: [UserSettings]
 
     /// Steuert die Navigation zur SettingsView.
-    @State private var showingSettings = false
+    @State var showingSettings = false
 
     /// Steuert das Anlegen einer Einkaufsliste aus der Planning-Toolbar.
     @State private var showingNewShoppingList = false
@@ -90,15 +57,14 @@ struct ContentView: View {
     @State private var selectedHealthMetricDate = Date()
 
     // MARK: - Ansicht
+
     var body: some View {
         NavigationStack {
-            ZStack {
-                TabView(selection: $selectedSection) {
-                    overview
-                    nutrition
-                    planning
-                    recipies
-                }
+            TabView(selection: $selectedSection) {
+                overview
+                nutrition
+                planning
+                recipes
             }
             .toolbar {
                 sharedToolbar
@@ -143,8 +109,8 @@ struct ContentView: View {
                     }
                 )
                 .presentationDetents([.medium, .large])
-                    .presentationDragIndicator(.visible)
-                    .presentationBackground(.regularMaterial)
+                .presentationDragIndicator(.visible)
+                .presentationBackground(.regularMaterial)
             }
             .sheet(isPresented: $showingAddWeight) {
                 AddWeightView(
@@ -188,69 +154,16 @@ struct ContentView: View {
     private var persistenceErrorPresented: Binding<Bool> {
         Binding(
             get: { persistenceErrorMessage != nil },
-            set: { if !$0 { persistenceErrorMessage = nil } }
+            set: {
+                if !$0 {
+                    persistenceErrorMessage = nil
+                }
+            }
         )
     }
 
     private func synchronizeHabitNotifications() async {
         _ = await HabitNotificationService.synchronize(habits: habits, completions: habitCompletions)
-    }
-
-    // MARK: - Gemeinsame Toolbar
-
-    /// Die Toolbar wird je nach aktivem Tab angepasst.
-    @ToolbarContentBuilder
-    private var sharedToolbar: some ToolbarContent {
-        SharedToolbar(
-            title: dateTitle,
-            onPrevious: {
-                moveSelectedDate(by: -1)
-            },
-            onSelectDate: {
-                showingDatePicker = true
-            },
-            onNext: {
-                moveSelectedDate(by: 1)
-            },
-            menuActions: selectedSection == .overview
-                ? SharedToolbarAction.overview
-                : SharedToolbarAction.nutrition,
-            onMenuAction: { action in
-                handleToolbarAction(action)
-            },
-            onSettings: {
-                showingSettings = true
-            },
-            isVisible: selectedSection == .overview || selectedSection == .nutrition
-        )
-    }
-
-    // MARK: - Toolbar-Aktionen
-
-    /// Führt die bereits implementierten Aktionen direkt aus und hält
-    /// zukünftige Mahlzeit-/Gewicht-Views als klar benannte Fälle bereit.
-    private func handleToolbarAction(_ action: SharedToolbarAction) {
-        switch action {
-        case .water:
-            showingAddWater = true
-        case .weight:
-            showingAddWeight = true
-        case .meal:
-            selectedNutritionMealType = .snack
-            showingAddNutrition = true
-        case .breakfast:
-            selectedNutritionMealType = .breakfast
-            showingAddNutrition = true
-        case .lunch:
-            selectedNutritionMealType = .lunch
-            showingAddNutrition = true
-        case .dinner:
-            selectedNutritionMealType = .dinner
-            showingAddNutrition = true
-        case .snack:
-            selectedNutritionMealType = .snack
-            showingAddNutrition = true
-        }
     }
 
     // MARK: - Tab-Bereiche
@@ -259,8 +172,8 @@ struct ContentView: View {
     private var overview: some View {
         OverviewView(
             selectedDate: selectedDate,
-            calorieGoal: userSettings.first?.calorieGoal ?? 1_800,
-            waterGoal: userSettings.first?.waterGoalML ?? 2_500,
+            calorieGoal: userSettings.first?.calorieGoal ?? 1800,
+            waterGoal: userSettings.first?.waterGoalML ?? 2500,
             accentColor: selectedAccentColor,
             onOpenWaterTrend: {
                 selectedHealthMetric = .water
@@ -271,29 +184,29 @@ struct ContentView: View {
                 selectedHealthMetricDate = selectedDate
             }
         )
-            .tabItem {
-                Label(
-                    AppSection.overview.title,
-                    systemImage: AppSection.overview.icon
-                )
-            }
-            .tag(AppSection.overview)
+        .tabItem {
+            Label(
+                AppSection.overview.title,
+                systemImage: AppSection.overview.icon
+            )
+        }
+        .tag(AppSection.overview)
     }
 
     /// Der Ernaehrungs-Tab.
     private var nutrition: some View {
         NutritionView(
             selectedDate: selectedDate,
-            calorieGoal: userSettings.first?.calorieGoal ?? 1_800,
+            calorieGoal: userSettings.first?.calorieGoal ?? 1800,
             accentColor: selectedAccentColor
         )
-            .tabItem {
-                Label(
-                    AppSection.nutrition.title,
-                    systemImage: AppSection.nutrition.icon
-                )
-            }
-            .tag(AppSection.nutrition)
+        .tabItem {
+            Label(
+                AppSection.nutrition.title,
+                systemImage: AppSection.nutrition.icon
+            )
+        }
+        .tag(AppSection.nutrition)
     }
 
     /// Der Planungs-Tab.
@@ -304,31 +217,31 @@ struct ContentView: View {
             showingNewTodoList: $showingNewTodoList,
             showingNewHabit: $showingNewHabit
         )
-            .tabItem {
-                Label(
-                    AppSection.planning.title,
-                    systemImage: AppSection.planning.icon
-                )
-            }
-            .tag(AppSection.planning)
+        .tabItem {
+            Label(
+                AppSection.planning.title,
+                systemImage: AppSection.planning.icon
+            )
+        }
+        .tag(AppSection.planning)
     }
 
     /// Der Rezept-Tab.
-    private var recipies: some View {
-        RecipiesView()
+    private var recipes: some View {
+        RecipesView()
             .tabItem {
                 Label(
-                    AppSection.recipies.title,
-                    systemImage: AppSection.recipies.icon
+                    AppSection.recipes.title,
+                    systemImage: AppSection.recipes.icon
                 )
             }
-            .tag(AppSection.recipies)
+            .tag(AppSection.recipes)
     }
 
     // MARK: - Datumsnavigation
 
     /// Zeigt fuer bekannte Tage einen kurzen Namen an.
-    private var dateTitle: String {
+    var dateTitle: String {
         let calendar = Calendar.current
 
         if calendar.isDateInToday(selectedDate) {
@@ -351,10 +264,9 @@ struct ContentView: View {
         )
     }
 
-
     /// Verschiebt das ausgewaehlte Datum um eine Anzahl von Tagen.
     /// Negative Werte gehen zurueck, positive Werte gehen voraus.
-    private func moveSelectedDate(by days: Int) {
+    func moveSelectedDate(by days: Int) {
         guard let newDate = Calendar.current.date(
             byAdding: .day,
             value: days,
@@ -387,72 +299,4 @@ struct ContentView: View {
 
         PersistenceErrorReporter.save(modelContext, operation: "Wassereintrag speichern")
     }
-
-    // MARK: - Erscheinungsbild
-
-    /// Uebersetzt die gespeicherte Auswahl in ein SwiftUI-Farbschema.
-    private var preferredColorScheme: ColorScheme? {
-        guard
-            let rawValue =
-                userSettings.first?.appearanceRawValue,
-            let appearance =
-                AppAppearance(rawValue: rawValue)
-        else {
-            return nil
-        }
-
-        return appearance.colorScheme
-    }
-
-    // MARK: - Akzentfarbe
-
-    /// Ermittelt die Preset- oder eigene Akzentfarbe des Profils.
-    private var selectedAccentColor: Color {
-        guard let settings = userSettings.first else {
-            return ColorPreset.blue.color
-        }
-
-        let accentColor = AppAccentColor(
-            rawValue: settings.accentColorRawValue
-        )
-
-        if accentColor == .custom {
-            return Color(
-                hexString: settings.customAccentHex
-            )
-        }
-
-        return accentColor.color ?? ColorPreset.blue.color
-    }
-}
-
-#Preview {
-    let proAccess = PasukiStoreKitProService(
-        configuration: PasukiProProductConfiguration(
-            featureByProductIdentifier: [:]
-        )
-    )
-    let syncMonitor = PasukiCloudKitSyncMonitor(isEnabled: false)
-
-    ContentView()
-        .modelContainer(
-            for: [
-                UserSettings.self,
-                WaterEntry.self,
-                WeightEntry.self,
-                NutritionEntry.self,
-                CustomFood.self,
-                FavoriteFood.self,
-                ShoppingList.self,
-                ShoppingListItem.self,
-                ShoppingListItemHistory.self,
-                TodoList.self,
-                TodoTask.self,
-                Habit.self,
-                HabitCompletion.self
-            ],
-            inMemory: true
-        )
-        .environmentObject(proAccess)
-        .environmentObject(syncMonitor)
 }

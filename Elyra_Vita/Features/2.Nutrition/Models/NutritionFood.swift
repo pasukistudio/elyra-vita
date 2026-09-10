@@ -84,7 +84,9 @@ struct NutritionFood: Identifiable, Hashable {
         }
 
         return NutritionFood(
-            id: entry.externalFoodID.isEmpty ? "entry-\(entry.foodName)-\(entry.date.timeIntervalSince1970)" : entry.externalFoodID,
+            id: entry.externalFoodID.isEmpty
+                ? "entry-\(entry.foodName)-\(entry.date.timeIntervalSince1970)"
+                : entry.externalFoodID,
             name: entry.foodName,
             brand: entry.brand,
             unit: isPieceEntry ? "g" : entry.unit,
@@ -98,7 +100,9 @@ struct NutritionFood: Identifiable, Hashable {
             saturatedFatPer100: entry.saturatedFatGrams / amountFactor,
             saltPer100: entry.saltGrams / amountFactor,
             source: entry.source,
-            barcode: entry.source == "openFoodFacts" ? entry.externalFoodID.replacingOccurrences(of: "off-", with: "") : nil
+            barcode: entry.source == "openFoodFacts"
+                ? entry.externalFoodID.replacingOccurrences(of: "off-", with: "")
+                : nil
         )
     }
 
@@ -113,7 +117,7 @@ struct NutritionFood: Identifiable, Hashable {
                 title: baseUnit == "ml" ? "Milliliter" : "Gramm",
                 symbol: baseUnit,
                 baseAmount: 1
-            )
+            ),
         ]
 
         // Stück bleibt auch bei gescannten Produkten ohne hinterlegtes
@@ -139,15 +143,35 @@ struct NutritionFood: Identifiable, Hashable {
     // MARK: - Lokaler deutscher Startkatalog
 
     static let localCatalog: [NutritionFood] = [
-        NutritionFood(id: "apple", name: "Apfel", brand: "", unit: "g", pieceWeight: 180, caloriesPer100: 52, proteinPer100: 0.3, carbohydratesPer100: 11.4, fatPer100: 0.2, sugarPer100: 10.4, fiberPer100: 2.4, saturatedFatPer100: 0, saltPer100: 0),
-        NutritionFood(id: "banana", name: "Banane", brand: "", unit: "g", pieceWeight: 120, caloriesPer100: 89, proteinPer100: 1.1, carbohydratesPer100: 22.8, fatPer100: 0.3, sugarPer100: 12.2, fiberPer100: 2.6, saturatedFatPer100: 0.1, saltPer100: 0),
-        NutritionFood(id: "bread-roll", name: "Weizenbrötchen", brand: "", unit: "g", pieceWeight: 60, caloriesPer100: 270, proteinPer100: 8.5, carbohydratesPer100: 52, fatPer100: 3.2, sugarPer100: 3.5, fiberPer100: 3.2, saturatedFatPer100: 0.5, saltPer100: 1.2),
-        NutritionFood(id: "oatmeal", name: "Haferflocken", brand: "", unit: "g", caloriesPer100: 372, proteinPer100: 13.5, carbohydratesPer100: 58.7, fatPer100: 7, sugarPer100: 0.7, fiberPer100: 10, saturatedFatPer100: 1.3, saltPer100: 0.01),
-        NutritionFood(id: "rice-cooked", name: "Reis, gekocht", brand: "", unit: "g", caloriesPer100: 130, proteinPer100: 2.7, carbohydratesPer100: 28.2, fatPer100: 0.3, sugarPer100: 0.1, fiberPer100: 0.4, saturatedFatPer100: 0.1, saltPer100: 0),
-        NutritionFood(id: "pasta-cooked", name: "Nudeln, gekocht", brand: "", unit: "g", caloriesPer100: 158, proteinPer100: 5.8, carbohydratesPer100: 30.9, fatPer100: 0.9, sugarPer100: 0.6, fiberPer100: 1.8, saturatedFatPer100: 0.2, saltPer100: 0.01),
-        NutritionFood(id: "egg", name: "Ei", brand: "", unit: "g", pieceWeight: 60, caloriesPer100: 143, proteinPer100: 12.6, carbohydratesPer100: 0.7, fatPer100: 9.5, sugarPer100: 0.4, fiberPer100: 0, saturatedFatPer100: 3.1, saltPer100: 0.36),
-        NutritionFood(id: "milk", name: "Milch 1,5 %", brand: "", unit: "ml", caloriesPer100: 47, proteinPer100: 3.4, carbohydratesPer100: 4.8, fatPer100: 1.5, sugarPer100: 4.8, fiberPer100: 0, saturatedFatPer100: 1, saltPer100: 0.1),
-        NutritionFood(id: "yogurt", name: "Naturjoghurt", brand: "", unit: "g", caloriesPer100: 61, proteinPer100: 3.5, carbohydratesPer100: 4.7, fatPer100: 3.3, sugarPer100: 4.7, fiberPer100: 0, saturatedFatPer100: 2.1, saltPer100: 0.1),
-        NutritionFood(id: "chicken-breast", name: "Hähnchenbrust", brand: "", unit: "g", caloriesPer100: 110, proteinPer100: 23.1, carbohydratesPer100: 0, fatPer100: 1.2, sugarPer100: 0, fiberPer100: 0, saturatedFatPer100: 0.3, saltPer100: 0.15)
+        NutritionFood(id: "apple", name: "Apfel", brand: "", unit: "g", pieceWeight: 180,
+                      caloriesPer100: 52, proteinPer100: 0.3, carbohydratesPer100: 11.4, fatPer100: 0.2,
+                      sugarPer100: 10.4, fiberPer100: 2.4, saturatedFatPer100: 0, saltPer100: 0),
+        NutritionFood(id: "banana", name: "Banane", brand: "", unit: "g", pieceWeight: 120,
+                      caloriesPer100: 89, proteinPer100: 1.1, carbohydratesPer100: 22.8, fatPer100: 0.3,
+                      sugarPer100: 12.2, fiberPer100: 2.6, saturatedFatPer100: 0.1, saltPer100: 0),
+        NutritionFood(id: "bread-roll", name: "Weizenbrötchen", brand: "", unit: "g", pieceWeight: 60,
+                      caloriesPer100: 270, proteinPer100: 8.5, carbohydratesPer100: 52, fatPer100: 3.2,
+                      sugarPer100: 3.5, fiberPer100: 3.2, saturatedFatPer100: 0.5, saltPer100: 1.2),
+        NutritionFood(id: "oatmeal", name: "Haferflocken", brand: "", unit: "g",
+                      caloriesPer100: 372, proteinPer100: 13.5, carbohydratesPer100: 58.7, fatPer100: 7,
+                      sugarPer100: 0.7, fiberPer100: 10, saturatedFatPer100: 1.3, saltPer100: 0.01),
+        NutritionFood(id: "rice-cooked", name: "Reis, gekocht", brand: "", unit: "g",
+                      caloriesPer100: 130, proteinPer100: 2.7, carbohydratesPer100: 28.2, fatPer100: 0.3,
+                      sugarPer100: 0.1, fiberPer100: 0.4, saturatedFatPer100: 0.1, saltPer100: 0),
+        NutritionFood(id: "pasta-cooked", name: "Nudeln, gekocht", brand: "", unit: "g",
+                      caloriesPer100: 158, proteinPer100: 5.8, carbohydratesPer100: 30.9, fatPer100: 0.9,
+                      sugarPer100: 0.6, fiberPer100: 1.8, saturatedFatPer100: 0.2, saltPer100: 0.01),
+        NutritionFood(id: "egg", name: "Ei", brand: "", unit: "g", pieceWeight: 60,
+                      caloriesPer100: 143, proteinPer100: 12.6, carbohydratesPer100: 0.7, fatPer100: 9.5,
+                      sugarPer100: 0.4, fiberPer100: 0, saturatedFatPer100: 3.1, saltPer100: 0.36),
+        NutritionFood(id: "milk", name: "Milch 1,5 %", brand: "", unit: "ml",
+                      caloriesPer100: 47, proteinPer100: 3.4, carbohydratesPer100: 4.8, fatPer100: 1.5,
+                      sugarPer100: 4.8, fiberPer100: 0, saturatedFatPer100: 1, saltPer100: 0.1),
+        NutritionFood(id: "yogurt", name: "Naturjoghurt", brand: "", unit: "g",
+                      caloriesPer100: 61, proteinPer100: 3.5, carbohydratesPer100: 4.7, fatPer100: 3.3,
+                      sugarPer100: 4.7, fiberPer100: 0, saturatedFatPer100: 2.1, saltPer100: 0.1),
+        NutritionFood(id: "chicken-breast", name: "Hähnchenbrust", brand: "", unit: "g",
+                      caloriesPer100: 110, proteinPer100: 23.1, carbohydratesPer100: 0, fatPer100: 1.2,
+                      sugarPer100: 0, fiberPer100: 0, saturatedFatPer100: 0.3, saltPer100: 0.15),
     ]
 }
